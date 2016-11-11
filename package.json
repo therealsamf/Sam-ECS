@@ -1,0 +1,16 @@
+{
+  "name": "samecs",
+  "version": "1.0.0",
+  "description": "A specialized entity component system",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "entity",
+    "component",
+    "system"
+  ],
+  "author": "Samuel Faulkner",
+  "license": "ISC"
+}
