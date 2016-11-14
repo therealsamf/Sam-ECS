@@ -5,7 +5,7 @@
   "main": "sam-ecs.js",
   "scripts": {
     "test": "jest --verbose",
-    "postinstall": "webpack --progress --colors"
+    "prepublish": "webpack --progress --colors"
   },
   "keywords": [
     "entity",
@@ -16,6 +16,10 @@
     "transform": {
       ".*": "<rootDir>/node_modules/babel-jest"
     }
+  },
+  "repo": {
+    "type": "git",
+    "url": "https://github.com/therealsamf/Sam-ECS.git"
   },
   "author": "Samuel Faulkner",
   "license": "ISC",
