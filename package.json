@@ -5,7 +5,7 @@
   "main": "sam-ecs.js",
   "scripts": {
     "test": "jest --verbose",
-    "prepublish": "webpack --progress --colors"
+    "postinstall": "webpack --progress --colors"
   },
   "keywords": [
     "entity",
