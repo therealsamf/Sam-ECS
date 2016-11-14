@@ -1,16 +1,30 @@
 {
-  "name": "samecs",
+  "name": "sam-ecs",
   "version": "1.0.0",
   "description": "A specialized entity component system",
-  "main": "index.js",
+  "main": "sam-ecs.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "jest --verbose",
+    "prepublish": "webpack --progress --colors"
   },
   "keywords": [
     "entity",
     "component",
     "system"
   ],
+  "jest": {
+    "transform": {".*": "<rootDir>/node_modules/babel-jest"}
+  },
   "author": "Samuel Faulkner",
-  "license": "ISC"
+  "license": "ISC",
+  "devDependencies": {
+    "babel": "^6.5.2",
+    "babel-core": "^6.18.2",
+    "babel-jest": "^17.0.0",
+    "babel-loader": "^6.2.7",
+    "babel-preset-es2015": "^6.18.0",
+    "jest": "^17.0.0",
+    "jest-cli": "^17.0.0",
+    "webpack": "^1.13.3"
+  }
 }
