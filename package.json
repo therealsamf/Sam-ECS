@@ -1,6 +1,6 @@
 {
   "name": "sam-ecs",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "A specialized entity component system",
   "main": "sam-ecs.js",
   "scripts": {
@@ -13,7 +13,9 @@
     "system"
   ],
   "jest": {
-    "transform": {".*": "<rootDir>/node_modules/babel-jest"}
+    "transform": {
+      ".*": "<rootDir>/node_modules/babel-jest"
+    }
   },
   "author": "Samuel Faulkner",
   "license": "ISC",
