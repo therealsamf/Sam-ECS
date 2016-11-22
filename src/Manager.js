@@ -6,9 +6,8 @@
  */
 
 //user imports
-const { Entity } = require('./Entity.js');
-const { Processor } = require('./Processor.js');
 const RandomStringGenerator = require('./utils/RandomStringGenerator.js');
+const { Entity } = require('./Entity.js');
 
 //constants
 const HASH_LENGTH = 8,
@@ -159,9 +158,6 @@ class Manager {
    * @param {Entity} entity - Entity object to be added
    */
   addEntity(entity) {
-    if (!(entity instanceof Entity)) {
-      throw "Parameter 'entity' must be of type Entity!";
-    }
 
     //if entity already exists, we remove the current one
     if (entity.hash() in this._entities) {
@@ -200,9 +196,6 @@ class Manager {
    */
   removeEntity(entity) {
     // error check
-    if (!(entity instanceof Entity)) {
-      throw "Parameter 'entity' must be of type Entity!";
-    }
 
     var hash = entity.hash();
     if (!(hash in this._entities)) {
@@ -364,9 +357,7 @@ class Manager {
    * @param {Processor} processor - processor to be removed
    */
   removeProcessor(processor) {
-    if (!(processor instanceof Processor)) {
-      throw new TypeError("'processor' must be instance of Processor!");
-    }
+    
     if (!(processor.getName() in this._processors)) {
       throw new TypeError("'" + processor.getName().toString() + 
         "' wasn't found!");
@@ -378,6 +369,18 @@ class Manager {
     //delete a cached list it has if it has it
     if (this._processorsCachedEntityLists[processor.getName()])
       delete this._processorsCachedEntityLists[processor.getName()];
+  }
+
+  /**
+   * @description - Retrieves a previously added processor
+   * @param {String} name - the nane of the processor
+   */
+  getProcessor(name) {
+    if (!this._processors[name])
+      throw new TypeError("Cannot find '" + name.toString() + "' in this" +
+        " manager's processors!");
+
+    return this._processors[name];
   }
 
   /**
@@ -409,7 +412,8 @@ class Manager {
     var components = entity.getComponents();
     for (var processorName in this._processors) {
       var shouldInvalidate = true;
-      for (var componentName of this._processors[processorName].getComponentNames()) {
+      for (var componentName of 
+        this._processors[processorName].getComponentNames()) {
         if (!(componentName in components)) {
           shouldInvalidate = false;
           break;

@@ -385,6 +385,30 @@ test("Removing a processor", () => {
 
 });
 
+/**
+ * @description - Tests retrieving a processor from the ECS
+ */
+test("Processor Retrieval", () => {
+  var manager = new Manager();
+
+  class RenderProcessor extends Processor{
+    update(entities) {
+      //do stuff
+    }
+
+    getComponentNames() {
+      if (!this._components) {
+        this._components = new Set(['Render', 'Transform']);
+      }
+      return this._components;
+    }
+  }
+  var renderProcessor = new RenderProcessor(manager, "RenderProcessor");
+  manager.addProcessor(renderProcessor);
+
+  expect(() => { manager.getProcessor("PhysicsProcessor"); }).toThrow();
+  expect(manager.getProcessor(renderProcessor.getName())).toBe(renderProcessor);
+});
 
 /**
  * @description - Test update function
