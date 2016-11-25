@@ -115,8 +115,8 @@ test("Overwriting an entity in the ECS manager", () => {
     }
   };
   var entity2 = new Entity(manager);
-  entity2.addComponent(physicsComponent);
   entity2._hash = entityHashValue;
+  entity2.addComponent(physicsComponent);
 
   manager.addEntity(entity2);
 
@@ -269,6 +269,20 @@ test("Dispatching a REMOVE_ENTITY action", () => {
   expect(() => { manager.getEntitiesByComponent('Transform'); }).toThrow();
   expect(manager._entitiesByComponent['Transform']).toBeUndefined();
   expect(() => { manager.getEntity(entity.hash()); }).toThrow();
+});
+
+test("Removing an entity's component", () => {
+  var manager = new Manager();
+
+  var entity = new Entity(manager);
+  entity.addComponent({'name': 'Transform', 'state': {'x': 0, 'y': 0}});
+  manager.addEntity(entity);
+
+  expect(() => { manager._removeHashFromComponentList('Render'); }).toThrow();
+  entity.removeComponent('Transform');
+  expect(manager._entitiesByComponent['Transform']).toBeUndefined();
+  expect(() => { manager.getEntitiesByComponent('Transform'); }).toThrow();
+
 });
 
 /**

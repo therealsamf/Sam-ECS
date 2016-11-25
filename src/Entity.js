@@ -33,6 +33,7 @@ class Entity {
     }
 
     this._components[component.name] = component.state;
+    this._manager._addToComponentList(component.name, this.hash());
   }
 
   /**
@@ -67,6 +68,8 @@ class Entity {
     }
 
     delete this._components[name];
+
+    this._manager._removeHashFromComponentList(name, this.hash());
   }
 }
 

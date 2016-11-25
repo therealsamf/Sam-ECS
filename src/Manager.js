@@ -34,7 +34,7 @@ Set.prototype.intersection = function(setB) {
  */
 function addEntityReducer(action, manager) {
   if (!(action.components)) {
-    throw "'" + action.actionType + 
+    throw "'" + action.type + 
       "' must specify components to add to the entity!";
   }
   var entity = new Entity(manager);
@@ -52,7 +52,7 @@ function addEntityReducer(action, manager) {
  */
 function removeEntityReducer(action, manager) {
   if (action.hash === undefined) {
-    throw "'" + action.actionType + 
+    throw "'" + action.type + 
       "' must specify hash to remove!";
   }
 
@@ -171,8 +171,7 @@ class Manager {
       if (!(componentName in this._entitiesByComponent)) {
         this._entitiesByComponent[componentName] = new Set();
       }
-      this._entitiesByComponent[componentName] = 
-        this._entitiesByComponent[componentName].add(entity.hash());
+      this._entitiesByComponent[componentName].add(entity.hash());
 
 
     }
@@ -216,6 +215,39 @@ class Manager {
 
     //invalidate processor lists
     this._invalidateProcessorLists(entity);
+  }
+
+
+  /**
+   * @description - In the case that a component was removed from an entity,
+   * the entity would call this method of the ECS to ensure that it wasn't
+   * on the list for that component anymore
+   * @param {String} componentName - the name of the component that was
+   * removed from the entity
+   * @param {String} hash - the hash value of the entity that is to be
+   * removed
+   */
+  _removeHashFromComponentList(componentName, hash) {
+    if (!(componentName in this._entitiesByComponent))
+      throw new TypeError("'" + componentName.toString() + "' doesn't have" + 
+        " any entities listed!");
+
+    this._entitiesByComponent[componentName].delete(hash);
+    if (this._entitiesByComponent[componentName].size <= 0) {
+      delete this._entitiesByComponent[componentName];
+    }
+  }
+
+  /**
+   * @description - Adds an entity to a component list
+   * @param {String} componentName - the name of the component
+   * @param {String} hash - the hash to add to the component set
+   */
+  _addToComponentList(componentName, hash) {
+    if (!(componentName in this._entitiesByComponent))
+      this._entitiesByComponent[componentName] = new Set();
+
+    this._entitiesByComponent[componentName].add(hash);
   }
 
   /**
