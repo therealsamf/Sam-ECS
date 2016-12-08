@@ -186,7 +186,7 @@ class Manager {
     // adds the entity itself to the entitiesByHash object
     this._entitiesByHash[entity.hash()] = entity;
     entity.setManager(this);
-    
+
     /* invalidate any cached list that would get to a processor
      * that utilizes entities with the same required components as
      * this entity has
@@ -224,9 +224,8 @@ class Manager {
     //invalidate processor lists
     this._invalidateProcessorLists(entity);
 
-    entity.clearManager();
     entity.removeComponents();
-
+    entity.clearManager();
   }
 
 

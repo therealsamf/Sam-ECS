@@ -121,7 +121,7 @@ test("Removing a component from an entity", () => {
     'state': {
       'stuff': 0,
       'remove': function(manager) {
-        testFunction();
+        testFunction(manager);
       }
     }
   };
@@ -138,6 +138,7 @@ test("Removing a component from an entity", () => {
 
   entity.removeComponent("ComponentWithRemove");
   expect(testFunction).toHaveBeenCalled();
+  expect(testFunction).toHaveBeenCalledWith(manager);
   expect(entity._components).toEqual({});
 });
 
