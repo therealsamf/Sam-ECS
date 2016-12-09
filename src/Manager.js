@@ -69,6 +69,8 @@ class Manager {
     this._entitiesByHash = {};
     this._emitter = new EventEmitter();
 
+    this._componentLibrary = {};
+
     // inital state for reducers allows adding and removing entities
     this._reducers = {
       [ADD_ENTITY]: [addEntityReducer],
@@ -459,7 +461,7 @@ class Manager {
         this._processors[processorName].getComponentNames()) {
         if (!(componentName in components)) {
           shouldInvalidate = false;
-          break;f
+          break;
         }
       }
 
@@ -544,6 +546,101 @@ class Manager {
   emit(eventType, arg) {
     //the event listener will get access to the manager itself
     return this._emitter.emit(eventType, arg, this);
+  }
+
+  /**
+   * @description - Serializes the entire state of the manager out to a 
+   * javascript object
+   * @return {Object} - the state of the ECS manager
+   */
+  toJSON() {
+    var entities = new Array();
+    for (var entityHash in this._entitiesByHash) {
+      var entity = this._entitiesByHash[entityHash];
+      entities.push(entity._toJSON());
+    }
+    return {
+      'entities': entities
+    }
+  }
+
+  /**
+   * @description - Takes the object produced from 'toJSON' and
+   * restores the entire state of the manager
+   * @param {Object} obj - the serialized state of the manager
+   */
+  fromJSON(obj) {
+    for (var entityObj of obj.entities) {
+      var hashValue = entityObj.hash;
+      var componentObject = entityObj.components;
+      var componentList = new Array();
+      for (var componentName in componentObject) {
+        var componentState = componentObject[componentName];
+        componentList.push({
+          'name': componentName,
+          'args': componentState,
+        });
+      }
+
+      this.addEntityFromComponents(componentList, hashValue);
+    }
+  }
+
+  /**
+   * @description - Adds a component to the manager, allowing entities
+   * to contain this component
+   * @param {String} name - the name of the component
+   * @param {Function} generatorFunction - the return value of this function
+   * will be given to an entity whenever they request this component
+   */
+  addComponentToLibrary(name, generatorFunction) {
+    this._componentLibrary[name] = generatorFunction;
+  }
+
+  /**
+   * @description - Removes a component that was previously added to the
+   * manager. Does NOT remove all instances of the component from current
+   * entities
+   * @param {String} name - the name of the component to be removed from
+   * the library
+   */
+  removeComponentFromLibrary(name) {
+    //don't throw an error here, because, why
+    if (!(name in this._componentLibrary))
+      return;
+
+    delete this._componentLibrary[name];
+  }
+
+  /**
+   * @description - Adds an entity and gives it the components listed
+   * @param {Array} componentList - a list of component objects to give to 
+   * the entity. Each component object should have two fields: 'name': the 
+   * name of the component, 'args': which will be passed to the 
+   * generatorFunction that was given whenever the component was added to 
+   * the manager, along with the manager itself
+   * @param {String} hashValue - optional paramter for a hashvalue to be
+   * assigned to the entity rather than one being generated
+   */
+  addEntityFromComponents(componentList, hashValue) {
+    var entity = new Entity(this);
+    var hash = hashValue || entity.hash();
+    //non effect if hashValue is undefined
+    entity._setHash(hash);
+    for (var componentObject of componentList) {
+      if (componentObject.name in this._componentLibrary) {
+        var component = this._componentLibrary[componentObject.name]
+          (componentObject.args, this);
+        //assign the name because without it's not a valid component
+        component.name = componentObject.name;
+        //allow the component to know what entity it is attached to
+        component.entity = entity.hash();
+        //init, if present in the component, should be called
+        entity.addComponent(component);
+      }
+    }
+
+    this.addEntity(entity);
   }
 }
 

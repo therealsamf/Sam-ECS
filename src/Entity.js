@@ -29,6 +29,14 @@ class Entity {
     return this._hash;
   }
 
+  _setHash(value) {
+    this._hash = value;
+    //reset the hash value in each component 
+    for (var componentName in this._components) {
+      this._components[componentName].entity = value;
+    }
+  }
+
   /**
    * @description - Adds a component object to this entity
    * @param {Object} component - object denoting the component to be added.
@@ -41,11 +49,20 @@ class Entity {
       throw "Component must have 'name' and 'state'!";
     }
 
-    this._components[component.name] = component.state;
+    // this should create a copy of the state
+    this._components[component.name] = {
+      'state': Object.assign({}, component.state),
+      'init': component.init,
+      'remove': component.remove
+    }
+
     if (this._manager) {
       this._manager._addToComponentList(component.name, this.hash());
       this._manager
         ._invalidateProcessorListsByEntityComponent(this.hash(), component.name);
+
+      if (this._components[component.name].init)
+        this._components[component.name].init(this._manager);
     }
   }
 
@@ -100,6 +117,34 @@ class Entity {
   removeComponents() {
     for (var key in this._components)
       this.removeComponent(key);
+  }
+
+  /**
+   * @description - Puts the entity into an object that can be saved
+   * @return {Object} - the entity's state
+   */
+  _toJSON() {
+    var components = {};
+    for (var componentName in this._components) {
+      components[componentName] = this._components[componentName].state;
+    }
+    return {
+      'components': components,
+      'hash': this.hash()
+    } ;
+  }
+
+  /**
+   * @description - Takes the object serialized from above and restores the
+   * state into this entity
+   * @param {Object} obj - the state of the entity
+   */
+  _fromJSON(obj) {
+    for (var componentName in obj.components) {
+      this.addComponent({'name': componentName, 
+        'state': obj.components[componentName]});
+    }
+    this._hash = obj.hash;
   }
 }
 

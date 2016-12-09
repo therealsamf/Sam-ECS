@@ -72,12 +72,16 @@ test("Adding an entity to the ECS manager", () => {
   expect(Object.keys(manager.getEntities())).toContain(entityHashValue);
   expect(manager.getEntities()[entityHashValue]).toEqual({
     [transformComponent.name]: {
-      'x': 0,
-      'y': 0
+      'state': {
+        'x': 0,
+        'y': 0
+      },
+      'init': undefined,
+      'remove': undefined
     }
   });
-  expect(manager.getEntities()[entityHashValue][transformComponent.name])
-    .toBe(transformComponent.state);
+  expect(manager.getEntities()[entityHashValue][transformComponent.name].state)
+    .toEqual(transformComponent.state);
 
   // test that 'getEntity' also returns the right data
   expect(manager.getEntityState(entityHashValue)).toBe(entity.getComponents());
@@ -234,8 +238,8 @@ test("Dispatching an ADD_ENTITY action", () => {
   //veritfy that the inserted entity is correct
   var entityStateTree = manager.getEntityState(hashValue);
 
-  expect(entityStateTree[transformComponent.name])
-    .toBe(transformComponent.state);
+  expect(entityStateTree[transformComponent.name].state)
+    .toEqual(transformComponent.state);
 });
 
 /**
@@ -634,6 +638,137 @@ test("Events", () => {
   manager.removeListener('test', listener);
   expect(manager.emit('test')).toBeFalsy();
   expect(listener).toHaveBeenCalledTimes(1);
+});
+
+test("Creating an entity from components", () => {
+  var manager = new Manager();
+
+  manager.addComponentToLibrary('Transform', (argObject, manager) => {
+    return {
+      'state': {
+        'x': argObject.x,
+        'y': argObject.y
+      }
+    };
+  });
+
+  manager.addEntityFromComponents([{'name': 'Transform', 'args': {'x': 1, 'y': 2}}]);
+
+  expect(manager.hasComponent('Transform')).toBe(true);
+  expect(manager.getEntitiesByComponent('Transform').size).toBeGreaterThan(0);
+});
+
+test("Creating an entity from components with init and remove", () => {
+  var manager = new Manager();
+
+  var testFun = jest.fn();
+
+  const PHYSICS = 'Physics';
+  manager.addComponentToLibrary(PHYSICS, (argObject, manager) => {
+    return {
+      'state': {
+        'pos': {
+          'x': argObject.pos.x,
+          'y': argObject.pos.y
+        },
+        'velocity': {
+          'x': argObject.velocity.x,
+          'y': argObject.velocity.y
+        }
+      },
+      'init': (man) => {
+        testFun();
+      },
+      'remove': (man) => {
+        testFun();
+      }
+    };
+  });
+
+  manager.addEntityFromComponents([
+    {
+      'name': PHYSICS,
+      'args': {
+        'pos': {
+          'x': 0,
+          'y': 1
+        },
+        'velocity': {
+          'x': 2,
+          'y': 3
+        }
+      }
+    }
+  ]);
+
+  expect(testFun).toHaveBeenCalled();
+
+  var entityHash = manager.getEntitiesByComponent(PHYSICS).values().next().value;
+  expect(entityHash).toBeDefined();
+
+  var entity = manager.getEntity(entityHash);
+  manager.removeEntity(entity);
+  expect(testFun).toHaveBeenCalledTimes(2);
+});
+
+test("Saving and restoring a manager's state", () => {
+  const PHYSICS = 'Physics';
+
+  //two managers, each with the same component libraries
+  var manager1 = new Manager();
+  var manager2 = new Manager();
+
+
+  var testFun = jest.fn();
+
+  function physicsGenerator(argObject, manager) {
+    return {
+      'state': {
+        'pos': {
+          'x': argObject.pos.x,
+          'y': argObject.pos.y
+        },
+        'velocity': {
+          'x': argObject.velocity.x,
+          'y': argObject.velocity.y
+        }
+      },
+      'init': (man) => {
+        testFun();
+      },
+      'remove': (man) => {
+        testFun();
+      }
+    };
+  }
+
+  manager1.addComponentToLibrary(PHYSICS, physicsGenerator);
+  manager2.addComponentToLibrary(PHYSICS, physicsGenerator);
+
+  manager1.addEntityFromComponents([{
+    'name': PHYSICS,
+    'args': {
+      'pos': {
+        'x': 0,
+        'y': 1
+      },
+      'velocity': {
+        'x': 2,
+        'y': 3
+      }
+    }
+  }]);
+
+  var managerState = manager1.toJSON();
+  console.dir(managerState);
+
+  manager2.fromJSON(managerState);
+  expect(manager2.hasComponent(PHYSICS));
+  expect(manager2._entitiesByComponent).toEqual(manager1._entitiesByComponent);
+  // expect(manager2._entitiesByHash).toBe(manager1._entitiesByHash);
+  // expect(manager2._entities).toEqual(manager1._entities);
+  expect(testFun).toHaveBeenCalledTimes(2);
+
 });
 
 /**

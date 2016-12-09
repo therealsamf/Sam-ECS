@@ -75,27 +75,35 @@ test("Adding a component to an entity", () => {
   expect(entity.getComponents()).toEqual(
     {
       'Transform': {
-        'x': 0,
-        'y': 0
+        'init': undefined,
+        'remove': undefined,
+        'state': {
+          'x': 0,
+          'y': 0
+        }
       }
     }
   );
   /* NOTE: Important that we use 'toBe' and refer the the validComponent's 
    * state. We need to be able to reference objects and mutate them
    */
-  expect(entity.getComponent("Transform")).toBe(validComponent1.state);
+  expect(entity.getComponent("Transform").state).toEqual(validComponent1.state);
 
   // test if we can replace a component
   entity.addComponent(validComponent2);
   expect(entity.getComponents()).toEqual(
     {
       'Transform': {
-        'x': 1,
-        'y': 1
+        'init': undefined,
+        'remove': undefined,
+        'state': {
+          'x': 1,
+          'y': 1
+        }
       }
     }
   );
-  expect(entity.getComponent("Transform")).toBe(validComponent2.state);
+  expect(entity.getComponent("Transform").state).toEqual(validComponent2.state);
 
   
 });
@@ -119,10 +127,10 @@ test("Removing a component from an entity", () => {
   var componentWithRemove = {
     'name': 'ComponentWithRemove',
     'state': {
-      'stuff': 0,
-      'remove': function(manager) {
-        testFunction(manager);
-      }
+      'stuff': 0
+    },
+    'remove': (manager) => {
+      testFunction(manager);
     }
   };
 
@@ -164,4 +172,50 @@ test("Removing all components from an entity", () => {
   entity.removeComponent = savedRemoveComponent;
   entity.removeComponents();
   expect(Object.keys(entity._components).length).toEqual(0);
+});
+
+test("Saving and restoring an entity's state", () => {
+  const { Manager } = require(path.resolve(source_path, "Manager.js"));
+  var manager = new Manager();
+
+  const { Entity } = require(path.resolve(source_path, "Entity.js"));
+  const entity = new Entity(manager);
+
+  var testFun = jest.fn();
+
+  var transformComponent = {
+    'name': 'Transform',
+    'state': {'x': 0, 'y': 0}
+  };
+  var otherComponent = {
+    'name': 'OtherComponent',
+    'state': {
+      
+    },
+    'init': (manager) => {
+      testFun();
+    }
+  }
+
+  entity.addComponent(transformComponent);
+  entity.addComponent(otherComponent);
+  expect(testFun).toHaveBeenCalled();
+
+  var entityState = entity._toJSON();
+
+  var entity2 = new Entity(manager);
+  entity2._fromJSON(entityState);
+
+  expect(entity2.hash()).toEqual(entity.hash());
+
+  for (var componentName in entity2.getComponents()) {
+    expect(entity2.getComponent(componentName).state)
+      .toEqual(entity.getComponent(componentName).state);
+  }
+
+  /* can't expect for the entity to be able to call the function
+   * when restoring itself. Only the manager can do that
+   */
+  expect(testFun).toHaveBeenCalledTimes(1);
+
 });
