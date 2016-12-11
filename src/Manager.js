@@ -380,6 +380,9 @@ class Manager {
     for (var fun of this._reducers[action.type]) {
       fun(action, this);
     }
+
+    if (this._dispatchFun)
+      this._dispatchFun(action);
   }
 
   /**
@@ -545,6 +548,10 @@ class Manager {
    */
   emit(eventType, arg) {
     //the event listener will get access to the manager itself
+
+    if (this._emitFun)
+      this._emitFun(eventType, arg);
+
     return this._emitter.emit(eventType, arg, this);
   }
 
@@ -641,6 +648,44 @@ class Manager {
     }
 
     this.addEntity(entity);
+  }
+
+  /**
+   * @description - This allows for the user to add a function
+   * that will be called every time the dispatch function on 
+   * the manager function is invoked
+   * @param {Function} fun - the function that will be called on
+   * every dispatch
+   */
+  addDispatchSideEffect(fun) {
+    this._dispatchFun = fun;
+  }
+
+  /**
+   * @description - removes the side effect functions from 
+   * {@link dispatch}
+   */
+  removeDispatchSideEffect() {
+    if (this._dispatchFun)
+      delete this._dispatchFun;
+  }
+
+  /**
+   * @description - Like {@link addDispatchSideEffect} this adds 
+   * a side effect for {@link emit}
+   * @param {Function} function - function that will be called for 
+   * every emit
+   */
+  addEmitSideEffect(fun) {
+    this._emitFun = fun;
+  }
+
+  /**
+   * @description - Removes the side effect from {@link addEmitSideEffect}
+   */
+  removeEmitSideEffect() {
+    if (this._emitFun)
+      delete this._emitFun;
   }
 }
 

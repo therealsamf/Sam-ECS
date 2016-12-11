@@ -771,6 +771,62 @@ test("Saving and restoring a manager's state", () => {
 
 });
 
+test("Adding a dispatch side effect function", () => {
+  var manager = new Manager();
+
+  var actionSideEffect = jest.fn();
+  expect(() => { 
+    manager.addDispatchSideEffect((action) => {
+      actionSideEffect(action);
+    }); 
+  }).not.toThrow();
+
+  var action = {
+    'type': 'TestAction',
+    'stuff': 'test stuff'
+  };
+
+  manager.dispatch(action);
+  expect(actionSideEffect).toHaveBeenCalledTimes(1);
+  expect(actionSideEffect).toHaveBeenCalledWith(action);
+
+  expect(() => {
+    manager.removeDispatchSideEffect();
+  }).not.toThrow();
+
+  manager.dispatch(action);
+  expect(actionSideEffect).toHaveBeenCalledTimes(1);
+
+});
+
+test("Adding an emit side effect function", () => {
+  var manager = new Manager();
+
+  var eventSideEffect = jest.fn();
+  expect(() => { 
+    manager.addEmitSideEffect((eventType, args) => {
+      eventSideEffect(eventType, args);
+    }); 
+  }).not.toThrow();
+
+  var eventType = 'TestEvent';
+  var args = {
+    'stuff': 'test stuff'
+  };
+
+  manager.emit(eventType, args);
+  expect(eventSideEffect).toHaveBeenCalledTimes(1);
+  expect(eventSideEffect).toHaveBeenCalledWith(eventType, args);
+
+  expect(() => {
+    manager.removeEmitSideEffect();
+  }).not.toThrow();
+
+  manager.emit(eventType, args);
+  expect(eventSideEffect).toHaveBeenCalledTimes(1);
+
+});
+
 /**
  * @description - Tests the generating a hash
  */
