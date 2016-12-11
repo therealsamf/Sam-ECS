@@ -372,6 +372,9 @@ class Manager {
       throw "Action must have an action type!";
     }
 
+    if (this._dispatchFun)
+      this._dispatchFun(action);
+
     /* don't throw an error because somethings might spew out actions
      * that don't necessarily mean an console.error
      */
@@ -381,8 +384,7 @@ class Manager {
       fun(action, this);
     }
 
-    if (this._dispatchFun)
-      this._dispatchFun(action);
+    
   }
 
   /**
