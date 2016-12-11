@@ -528,6 +528,7 @@ test("Invalidation of cached lists for processors", () => {
   var entity1 = new Entity(manager);
   var entity2 = new Entity(manager);
   var entity3 = new Entity(manager);
+  var entity4 = new Entity(manager);
   entity1.addComponent({'name': 'Render', 'state': {}});
   entity2.addComponent({'name': 'Render', 'state': {}});
   entity2.addComponent({'name': 'Transform', 'state': {'x': 0, 'y': 0}});
@@ -535,12 +536,23 @@ test("Invalidation of cached lists for processors", () => {
   entity3.addComponent({'name': 'Transform', 'state': {'x': 1, 'y': 1}});
   entity3.addComponent({'name': 'Physics', 
     'state': { 'velocity': {'x': 0, 'y': 0}}});
+  entity4.addComponent({'name': 'Render', 'state': {}});
+  entity4.addComponent({'name': 'Transform', 'state': {'x': 2, 'y': 2}});
+  entity4.addComponent({'name': 'Physics', 
+    'state': { 'velocity': {'x': 1, 'y': 1}}});
+  entity4.addComponent({'name': 'Player', 'state': {'isPlayer': 'false'}});
 
   manager.addEntity(entity1);
   manager.addEntity(entity2);
   manager.addEntity(entity3);
+  manager.addEntity(entity4);
 
   manager.addProcessor(renderProcessor);
+  manager.update();
+
+  entity4.removeComponent('Render');
+  expect(manager._processorsCachedEntityLists.RenderProcessor.invalid)
+    .toEqual(true);
   manager.update();
 
   /* test that removal and then updating catches the invalid state and calls 
@@ -571,6 +583,17 @@ test("Invalidation of cached lists for processors", () => {
   /* make sure that after adding an entity it catches the invalid state 
    * and updates the process's list
    */
+  entity3.addComponent({'name': 'Render', 'state': {}});
+  entity3.addComponent({'name': 'Transform', 'state': {'x': 1, 'y': 1}});
+  entity3.addComponent({'name': 'Physics', 
+    'state': { 'velocity': {'x': 0, 'y': 0}}});
+  /* we added components back to an entity, but the entity isn't being
+   * tracked in the manager, so no adverse side effects should have happened
+   * to the manager
+   */
+  expect(manager._processorsCachedEntityLists.RenderProcessor.invalid)
+    .toEqual(false);
+  
   manager.addEntity(entity3);
   expect(manager._processorsCachedEntityLists.RenderProcessor.invalid)
     .toEqual(true);
@@ -589,6 +612,28 @@ test("Invalidation of cached lists for processors", () => {
   manager.update();
   expect(manager._fetchProcessorEntityList).not.toHaveBeenCalled();
 
+});
+
+/**
+ * @description - Tests events
+ */
+test("Events", () => {
+  var manager = new Manager();
+
+  var listener = jest.fn();
+
+  expect(manager.emit('test')).toBeFalsy();
+  expect(listener).not.toHaveBeenCalled();
+
+  var testObject = {'test': 0};
+
+  manager.addListener('test', listener);
+  expect(manager.emit('test', testObject)).toBeTruthy();
+  expect(listener).toHaveBeenCalledWith(testObject, manager);
+
+  manager.removeListener('test', listener);
+  expect(manager.emit('test')).toBeFalsy();
+  expect(listener).toHaveBeenCalledTimes(1);
 });
 
 /**

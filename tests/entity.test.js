@@ -106,7 +106,45 @@ test("Adding a component to an entity", () => {
 test("Removing a component from an entity", () => {
   const { Manager } = require(path.resolve(source_path, "Manager.js"));
   var manager = new Manager();
-{ Entity }
+
+  const { Entity } = require(path.resolve(source_path, "Entity.js"));
+  const entity = new Entity(manager);
+
+  var transformComponent = {
+    'name': 'Transform',
+    'state': {'x': 0, 'y': 0}
+  };
+
+  var testFunction = jest.fn();
+  var componentWithRemove = {
+    'name': 'ComponentWithRemove',
+    'state': {
+      'stuff': 0,
+      'remove': function(manager) {
+        testFunction();
+      }
+    }
+  };
+
+  entity.addComponent(transformComponent);
+  entity.addComponent(componentWithRemove);
+
+  // test removing components
+  expect(() => { entity.removeComponent("Render"); }).toThrow();
+  entity.removeComponent("Transform");
+
+  expect(() => { entity.getComponent(transformComponent.name); }).toThrow();
+  expect(entity._components['Transform']).toBeUndefined();
+
+  entity.removeComponent("ComponentWithRemove");
+  expect(testFunction).toHaveBeenCalled();
+  expect(entity._components).toEqual({});
+});
+
+test("Removing all components from an entity", () => {
+  const { Manager } = require(path.resolve(source_path, "Manager.js"));
+  var manager = new Manager();
+
   const { Entity } = require(path.resolve(source_path, "Entity.js"));
   const entity = new Entity(manager);
 
@@ -116,12 +154,13 @@ test("Removing a component from an entity", () => {
   };
 
   entity.addComponent(transformComponent);
+  var savedRemoveComponent = entity.removeComponent;
+  entity.removeComponent = jest.fn();
+  entity.removeComponents();
+  
+  expect(entity.removeComponent).toHaveBeenCalled();
 
-  // test removing components
-  expect(() => { entity.removeComponent("Render"); }).toThrow();
-  entity.removeComponent("Transform");
-
-  expect(entity.getComponents()).toEqual({});
-  expect(() => { entity.getComponent(transformComponent.name); }).toThrow();
-  expect(entity._components['Transform']).toBeUndefined();
+  entity.removeComponent = savedRemoveComponent;
+  entity.removeComponents();
+  expect(Object.keys(entity._components).length).toEqual(0);
 });

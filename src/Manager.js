@@ -14,6 +14,9 @@ const HASH_LENGTH = 8,
   ADD_ENTITY = 'ADD_ENTITY',
   REMOVE_ENTITY = 'REMOVE_ENTITY';
 
+//node inmports
+const EventEmitter = require('events');
+
 /**
  * @description - Set intersection taken from Mozilla
  */
@@ -64,6 +67,7 @@ class Manager {
     this._entities = {};
     this._entitiesByComponent = {};
     this._entitiesByHash = {};
+    this._emitter = new EventEmitter();
 
     // inital state for reducers allows adding and removing entities
     this._reducers = {
@@ -181,7 +185,8 @@ class Manager {
 
     // adds the entity itself to the entitiesByHash object
     this._entitiesByHash[entity.hash()] = entity;
-
+    entity.setManager(this);
+    
     /* invalidate any cached list that would get to a processor
      * that utilizes entities with the same required components as
      * this entity has
@@ -201,6 +206,9 @@ class Manager {
       throw "'" + hash + "' isn't currently in the ECS manager!";
     }
 
+    //grab this before it gets deleted
+    var entity = this._entitiesByHash[hash];
+    
     // remove from the main '_entities' object
     delete this._entities[hash];
     delete this._entitiesByHash[hash];
@@ -215,6 +223,10 @@ class Manager {
 
     //invalidate processor lists
     this._invalidateProcessorLists(entity);
+
+    entity.clearManager();
+    entity.removeComponents();
+
   }
 
 
@@ -448,13 +460,29 @@ class Manager {
         this._processors[processorName].getComponentNames()) {
         if (!(componentName in components)) {
           shouldInvalidate = false;
-          break;
+          break;f
         }
       }
 
       if (shouldInvalidate && 
         this._processorsCachedEntityLists[processorName] !== undefined)
         this._processorsCachedEntityLists[processorName].invalid = true;
+    }
+  }
+
+  /**
+   * @description - typically called whenever an entity has deleted a
+   * component, it needs to invalidate any processor list that depended 
+   * on that component
+   * @param {String} entityHash - the hash denoting the entity
+   * @param {String} component - denotes the name of the component
+   */
+  _invalidateProcessorListsByEntityComponent(entityHash, component) {
+    for (var processorName in this._processors) {
+      if (this._processors[processorName].getComponentNames().has(component) &&
+        this._processorsCachedEntityLists[processorName].set.has(entityHash)) {
+        this._processorsCachedEntityLists[processorName].invalid = true;
+      }
     }
   }
 
@@ -483,6 +511,40 @@ class Manager {
       set = set.intersection(this.getEntitiesByComponent(component));
     }
     this._processorsCachedEntityLists[processorName].set = set;
+  }
+
+  /**
+   * @description - Adds a listener to be called when an event
+   * is thrown
+   * @param {String} eventType - denotes the type of event
+   * @param {Function} fun - the function that will be called
+   * after the event will be removed
+   */
+  addListener(eventType, fun) {
+    this._emitter.addListener(eventType, fun);
+  }
+
+  /**
+   * @description - Removes a listener that was previously added
+   * @param {String} eventType - denotes the type of the event
+   * @param {Function} fun - the listener to be removed
+   */
+  removeListener(eventType, fun) {
+    this._emitter.removeListener(eventType, fun);
+  }
+
+  /**
+   * @description - Emits an event with the given argument
+   * @param {String} eventType - denotes the type of event to be
+   * emitted
+   * @param {Object} arg - the argument that will be passed to the
+   * event handler
+   * @return {Bool} - Returns whether there were any listeners
+   * for the supplied event type or not
+   */
+  emit(eventType, arg) {
+    //the event listener will get access to the manager itself
+    return this._emitter.emit(eventType, arg, this);
   }
 }
 

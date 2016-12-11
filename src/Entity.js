@@ -14,6 +14,14 @@ class Entity {
     this._components = {};
   }
 
+  clearManager() {
+    this._manager = null;
+  }
+
+  setManager(manager) {
+    this._manager = manager;
+  }
+
   hash() {
     if (this._hash === undefined) {
       this._hash = this._manager.generateHash();
@@ -28,12 +36,17 @@ class Entity {
    * must be an object
    */
   addComponent(component) {
-    if (!(component.name !== undefined && component.state !== undefined && typeof component.state === 'object')) {
+    if (!(component.name !== undefined && component.state !== undefined && 
+      typeof component.state === 'object')) {
       throw "Component must have 'name' and 'state'!";
     }
 
     this._components[component.name] = component.state;
-    this._manager._addToComponentList(component.name, this.hash());
+    if (this._manager) {
+      this._manager._addToComponentList(component.name, this.hash());
+      this._manager
+        ._invalidateProcessorListsByEntityComponent(this.hash(), component.name);
+    }
   }
 
   /**
@@ -67,9 +80,26 @@ class Entity {
       throw "'" + name + "' isn't a component of this entity!";
     }
 
+    if (this._components[name].remove)
+      this._components[name].remove(this._manager);
+
     delete this._components[name];
 
-    this._manager._removeHashFromComponentList(name, this.hash());
+    if (this._manager) {
+      if (this._manager.hasComponent(name) && 
+        this._manager.getEntitiesByComponent(name).has(this.hash()))
+        this._manager._removeHashFromComponentList(name, this.hash());
+
+      this._manager._invalidateProcessorListsByEntityComponent(this.hash(), name);
+    }
+  }
+
+  /**
+   * @description - Calls remove component on every component
+   */
+  removeComponents() {
+    for (var key in this._components)
+      this.removeComponent(key);
   }
 }
 
