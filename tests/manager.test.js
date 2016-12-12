@@ -945,7 +945,7 @@ describe("Sorted processor entity lists", () => {
       set.sorted(compareFunction).toArray())
         .toEqual(manager._processorsCachedEntityLists['RenderProcessor'].set.toArray());
     
-    // expect(testFun1).toHaveBeenCalledWith([testHash1, testHash2]);
+    expect(testFun1).toHaveBeenCalledWith([testHash2, testHash1]);
   });
 
   test("Pre-existing entities get sorted next iteration", () => {
