@@ -5,6 +5,12 @@
  * @author - Samuel Faulkner
  */
 
+//node imports
+// const { SortedArraySet, FastSet } = require('collections');
+const FastSet = require('collections/fast-set.js'),
+  SortedSet = require('collections/sorted-array-set.js');
+const EventEmitter = require('events');
+
 //user imports
 const RandomStringGenerator = require('./utils/RandomStringGenerator.js');
 const { Entity } = require('./Entity.js');
@@ -14,21 +20,6 @@ const HASH_LENGTH = 8,
   ADD_ENTITY = 'ADD_ENTITY',
   REMOVE_ENTITY = 'REMOVE_ENTITY';
 
-//node inmports
-const EventEmitter = require('events');
-
-/**
- * @description - Set intersection taken from Mozilla
- */
-Set.prototype.intersection = function(setB) {
-    var intersection = new Set();
-    for (var elem of setB) {
-        if (this.has(elem)) {
-            intersection.add(elem);
-        }
-    }
-    return intersection;
-}
 
 /**
  * @description - Special reducer for action ADD_ENTITY
@@ -82,7 +73,7 @@ class Manager {
     /* keeps a set of all the hashes so to not get any collisions 
      * (even though very unlikely)
      */
-    this._hashes = new Set();
+    this._hashes = new FastSet();
   }
 
   /** 
@@ -175,7 +166,7 @@ class Manager {
     for (var componentName in components) {
       //add the entity to the lists of components
       if (!(componentName in this._entitiesByComponent)) {
-        this._entitiesByComponent[componentName] = new Set();
+        this._entitiesByComponent[componentName] = new FastSet();
       }
       this._entitiesByComponent[componentName].add(entity.hash());
 
@@ -218,7 +209,7 @@ class Manager {
     //remove from all of the component sets
     for (var componentName in entity.getComponents()) {
       this._entitiesByComponent[componentName].delete(hash);
-      if (this._entitiesByComponent[componentName].size <= 0) {
+      if (this._entitiesByComponent[componentName].length <= 0) {
         delete this._entitiesByComponent[componentName];
       }
     }
@@ -246,7 +237,7 @@ class Manager {
         " any entities listed!");
 
     this._entitiesByComponent[componentName].delete(hash);
-    if (this._entitiesByComponent[componentName].size <= 0) {
+    if (this._entitiesByComponent[componentName].length <= 0) {
       delete this._entitiesByComponent[componentName];
     }
   }
@@ -258,7 +249,7 @@ class Manager {
    */
   _addToComponentList(componentName, hash) {
     if (!(componentName in this._entitiesByComponent))
-      this._entitiesByComponent[componentName] = new Set();
+      this._entitiesByComponent[componentName] = new FastSet();
 
     this._entitiesByComponent[componentName].add(hash);
   }
@@ -477,6 +468,40 @@ class Manager {
   }
 
   /**
+   * @description - Allows entities to be sorted in the 
+   * cached list that is given to a processor
+   * @param {String} processorName - the name of the processor 
+   * to be sorted
+   * @param {Function} equal - determines if two items are equal, should
+   * nearly always compare entityHash values
+   * @param {Function} compare - comparator function for the sorting
+   */
+  addSorterForProcessorList(processorName, equal, compare) {
+    if (!this._processorsCachedEntityLists[processorName]) {
+      this._processorsCachedEntityLists[processorName] = {
+        'invalid': true,
+        'set': new SortedSet([], equal, compare),
+        'isSorted': true,
+        'equal': equal,
+        'compare': compare
+      };
+    }
+
+    else {
+      Object.assign(
+        this._processorsCachedEntityLists[processorName],
+        {
+          'invalid': true,
+          'set': new SortedSet(this._processorsCachedEntityLists[processorName]
+            .set.toArray(), equal, compare),
+          'equal': equal,
+          'compare': compare
+        }
+      );
+    }
+  }
+
+  /**
    * @description - typically called whenever an entity has deleted a
    * component, it needs to invalidate any processor list that depended 
    * on that component
@@ -503,20 +528,28 @@ class Manager {
     if (!this._processorsCachedEntityLists[processorName]) {
       this._processorsCachedEntityLists[processorName] = {};
     }
-    this._processorsCachedEntityLists[processorName].invalid = false;
+    var cachedListObject = this._processorsCachedEntityLists[processorName];
+    cachedListObject.invalid = false;
 
-    var set = new Set(Object.keys(this._entitiesByHash));
+    var set = cachedListObject.isSorted ?
+      new SortedSet(
+        Object.keys(this._entitiesByHash), 
+        cachedListObject.equal, 
+        cachedListObject.compare
+      ) :
+        new FastSet(Object.keys(this._entitiesByHash));
     for (var component of componentSet) {
       /* none of the entities in the manager have a required component of the
        * processor, return empty set
        */
       if (!this.hasComponent(component)) {
-        this._processorsCachedEntityLists[processorName].set = new Set();
+        cachedListObject.set = new FastSet();
         return;
       }
       set = set.intersection(this.getEntitiesByComponent(component));
     }
-    this._processorsCachedEntityLists[processorName].set = set;
+    
+    cachedListObject.set = set;
   }
 
   /**

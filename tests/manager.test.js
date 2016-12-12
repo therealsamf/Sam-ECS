@@ -89,7 +89,8 @@ test("Adding an entity to the ECS manager", () => {
   // test the component lists to see if they correctly added the entity's hash
   var expectedSet = new Set();
   expectedSet.add(entityHashValue);
-  expect(manager.getEntitiesByComponent(transformComponent.name)).toEqual(expectedSet);
+  expect(manager.getEntitiesByComponent(transformComponent.name)
+    .toArray()).toEqual([entityHashValue]);
 
   
 });
@@ -129,7 +130,8 @@ test("Overwriting an entity in the ECS manager", () => {
 
   var expectedSet = new Set();
   expectedSet.add(entityHashValue);
-  expect(manager.getEntitiesByComponent(physicsComponent.name)).toEqual(expectedSet);
+  expect(manager.getEntitiesByComponent(physicsComponent.name).toArray())
+    .toEqual([entityHashValue]);
 
   expect(() => { manager.getEntitiesByComponent(transformComponent.name); }).toThrow();
 });
@@ -182,9 +184,8 @@ test("Removing an entity from the ECS manager", () => {
 
   // 'entity2' should still be there safe and sound
   expect(manager.getEntityState(entity2.hash())).toBe(entity2.getComponents());
-  var expectedSet = new Set();
-  expectedSet.add(entity2.hash());
-  expect(manager.getEntitiesByComponent("Transform")).toEqual(expectedSet);
+  
+  expect(manager.getEntitiesByComponent("Transform").toArray()).toEqual([entity2.hash()]);
   expect(manager.hasComponent("Transform")).toEqual(true);
 
   // Should be no more 'Physics' list
@@ -495,14 +496,12 @@ test("Caching lists of entities for processors", () => {
   manager.addProcessor(renderProcessor);
   manager.update();
 
-  expect(manager._processorsCachedEntityLists).toEqual({
-    'RenderProcessor': {
-      'invalid': false,
-      'set': new Set([entity2.hash(), entity3.hash()])
-    }
-  });
-  expect(manager._processorsCachedEntityLists.RenderProcessor.set)
-    .toEqual(new Set([entity2.hash(), entity3.hash()]));
+  var processorLists = manager._processorsCachedEntityLists;
+  expect(Object.keys(processorLists).length).toBe(1);
+  expect(processorLists.RenderProcessor.invalid).toBe(false);
+  expect(processorLists.RenderProcessor.set.toArray()).toEqual([entity2.hash(),
+    entity3.hash()]);
+
   expect(updateFun).toHaveBeenCalledWith(
     manager._processorsCachedEntityLists.RenderProcessor.set);
 
@@ -579,8 +578,8 @@ test("Invalidation of cached lists for processors", () => {
   manager.update();
   expect(manager._processorsCachedEntityLists.RenderProcessor.invalid)
     .toEqual(false);
-  expect(manager._processorsCachedEntityLists.RenderProcessor.set)
-    .toEqual(new Set([entity2.hash()]));
+  expect(manager._processorsCachedEntityLists.RenderProcessor.set.toArray())
+    .toEqual([entity2.hash()]);
   expect(updateFun).toHaveBeenLastCalledWith(
     manager._processorsCachedEntityLists.RenderProcessor.set);
 
@@ -604,8 +603,8 @@ test("Invalidation of cached lists for processors", () => {
   manager.update();
   expect(manager._processorsCachedEntityLists.RenderProcessor.invalid)
     .toEqual(false);
-  expect(manager._processorsCachedEntityLists.RenderProcessor.set)
-    .toEqual(new Set([entity2.hash(), entity3.hash()]));
+  expect(manager._processorsCachedEntityLists.RenderProcessor.set.toArray())
+    .toEqual([entity2.hash(), entity3.hash()]);
   expect(updateFun).toHaveBeenLastCalledWith(
     manager._processorsCachedEntityLists.RenderProcessor.set);
 
@@ -655,7 +654,7 @@ test("Creating an entity from components", () => {
   manager.addEntityFromComponents([{'name': 'Transform', 'args': {'x': 1, 'y': 2}}]);
 
   expect(manager.hasComponent('Transform')).toBe(true);
-  expect(manager.getEntitiesByComponent('Transform').size).toBeGreaterThan(0);
+  expect(manager.getEntitiesByComponent('Transform').length).toBeGreaterThan(0);
 });
 
 test("Creating an entity from components with init and remove", () => {
@@ -703,7 +702,7 @@ test("Creating an entity from components with init and remove", () => {
 
   expect(testFun).toHaveBeenCalled();
 
-  var entityHash = manager.getEntitiesByComponent(PHYSICS).values().next().value;
+  var entityHash = manager.getEntitiesByComponent(PHYSICS).toArray()[0];
   expect(entityHash).toBeDefined();
 
   var entity = manager.getEntity(entityHash);
@@ -764,7 +763,12 @@ test("Saving and restoring a manager's state", () => {
 
   manager2.fromJSON(managerState);
   expect(manager2.hasComponent(PHYSICS));
-  expect(manager2._entitiesByComponent).toEqual(manager1._entitiesByComponent);
+  expect(Object.keys(manager2._entitiesByComponent))
+    .toEqual(Object.keys(manager1._entitiesByComponent));
+  for (var key in manager2._entitiesByComponent) {
+    expect(manager2._entitiesByComponent[key].toArray())
+      .toEqual(manager1._entitiesByComponent[key].toArray());
+  }
   // expect(manager2._entitiesByHash).toBe(manager1._entitiesByHash);
   // expect(manager2._entities).toEqual(manager1._entities);
   expect(testFun).toHaveBeenCalledTimes(2);
@@ -825,6 +829,132 @@ test("Adding an emit side effect function", () => {
   manager.emit(eventType, args);
   expect(eventSideEffect).toHaveBeenCalledTimes(1);
 
+});
+
+describe("Sorted processor entity lists", () => {
+  var manager;
+  var renderProcessor;
+  var testFun1,
+    testFun2;
+
+  class RenderProcessor extends Processor{
+    update(entities) {
+      testFun1(entities.toArray());
+    }
+
+    getComponentNames() {
+      if (!this._components) {
+        this._components = new Set(['Render', 'Transform']);
+      }
+      return this._components;
+    }
+  }
+
+  beforeEach(() => {
+    manager = new Manager();
+    testFun1 = jest.fn();
+    testFun2 = jest.fn();
+
+    renderProcessor = new RenderProcessor(manager, "RenderProcessor");
+    manager.addProcessor(renderProcessor);
+    
+    manager.addComponentToLibrary('Render', 
+      (argObject, manager) => {
+        return {
+          'name': 'Render',
+          'state': {
+            'layer': argObject.layer
+          }
+        }
+      }
+    );
+    manager.addComponentToLibrary('Transform',
+      (argObject, manager) => {
+        return {
+          'name': 'Transform',
+          'state': {
+            'x': argObject.x,
+            'y': argObject.y
+          }
+        }
+      }
+    );
+
+  });
+
+  var equalFunction = (entityAHash, entityBHash) => { 
+    return entityAHash === entityBHash;
+  };
+  var compareFunction = (entityAHash, entityBHash) => {
+    var entityAState = manager.getEntityState(entityAHash);
+    var entityBState = manager.getEntityState(entityBHash);
+    testFun2();
+    if (!entityAState.Render || !entityBState.Render)
+      return 0;
+    return entityAState.Render.state.layer - entityBState.Render.state.layer;
+  };
+
+  test("Adding a sorter and sorting on insertion", () => {
+    manager.addSorterForProcessorList("RenderProcessor", 
+      equalFunction,
+      compareFunction);
+
+    var testHash1 = 'testHash1',
+      testHash2 = 'testHash2';
+    manager.addEntityFromComponents(
+      [{
+        'name': 'Render',
+        'args': {
+          'layer': 1
+        }
+      },
+      {
+        'name': 'Transform',
+        'args': {
+          'x': 0,
+          'y': 1
+        }
+      }],
+      testHash1
+    );
+
+    manager.addEntityFromComponents(
+      [{
+        'name': 'Render',
+        'args': {
+          'layer': 0
+        }
+      },
+      {
+        'name': 'Transform',
+        'args': {
+          'x': 0,
+          'y': 1
+        }
+      }],
+      testHash2
+    );
+
+    
+    manager.update();
+    expect(testFun2).toHaveBeenCalled();
+
+    expect(manager._processorsCachedEntityLists['RenderProcessor'].
+      set).toBeDefined();
+    expect(manager._processorsCachedEntityLists['RenderProcessor'].
+      set.sorted(compareFunction).toArray())
+        .toEqual(manager._processorsCachedEntityLists['RenderProcessor'].set.toArray());
+    
+    // expect(testFun1).toHaveBeenCalledWith([testHash1, testHash2]);
+  });
+
+  test("Pre-existing entities get sorted next iteration", () => {
+
+  });
+
+  test("Entities get sorted on insertion", () => {
+
+  });
 });
 
 /**
