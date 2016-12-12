@@ -185,6 +185,7 @@ class Manager {
      * this entity has
      */
     this._invalidateProcessorLists(entity);
+    return entity.hash();
   }
 
   /**
@@ -683,7 +684,7 @@ class Manager {
       }
     }
 
-    this.addEntity(entity);
+    return this.addEntity(entity);
   }
 
   /**
