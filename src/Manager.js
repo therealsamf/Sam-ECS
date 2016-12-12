@@ -511,6 +511,7 @@ class Manager {
   _invalidateProcessorListsByEntityComponent(entityHash, component) {
     for (var processorName in this._processors) {
       if (this._processors[processorName].getComponentNames().has(component) &&
+        this._processorsCachedEntityLists[processorName] &&
         this._processorsCachedEntityLists[processorName].set.has(entityHash)) {
         this._processorsCachedEntityLists[processorName].invalid = true;
       }

@@ -949,11 +949,48 @@ describe("Sorted processor entity lists", () => {
   });
 
   test("Pre-existing entities get sorted next iteration", () => {
+    var testHash1 = 'testHash1',
+      testHash2 = 'testHash2';
+    manager.addEntityFromComponents(
+      [{
+        'name': 'Render',
+        'args': {
+          'layer': 1
+        }
+      },
+      {
+        'name': 'Transform',
+        'args': {
+          'x': 0,
+          'y': 1
+        }
+      }],
+      testHash1
+    );
 
-  });
+    manager.addEntityFromComponents(
+      [{
+        'name': 'Render',
+        'args': {
+          'layer': 0
+        }
+      },
+      {
+        'name': 'Transform',
+        'args': {
+          'x': 0,
+          'y': 1
+        }
+      }],
+      testHash2
+    );
 
-  test("Entities get sorted on insertion", () => {
+    manager.addSorterForProcessorList("RenderProcessor", 
+      equalFunction,
+      compareFunction);
 
+    manager.update();
+    expect(testFun1).toHaveBeenCalledWith([testHash2, testHash1]);
   });
 });
 
