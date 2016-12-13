@@ -582,11 +582,10 @@ class Manager {
    * for the supplied event type or not
    */
   emit(eventType, arg) {
-    //the event listener will get access to the manager itself
-
     if (this._emitFun)
       this._emitFun(eventType, arg);
 
+    //the event listener will get access to the manager itself
     return this._emitter.emit(eventType, arg, this);
   }
 

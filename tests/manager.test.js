@@ -290,56 +290,79 @@ test("Removing an entity's component", () => {
 
 });
 
-/**
- * @description - Tests adding a reducer
- */
-test("Adding a reducer", () => {
-  var manager = new Manager();
+describe("Reducers", () => {
+  /**
+   * @description - Tests adding a reducer
+   */
+  test("Adding a reducer", () => {
+    var manager = new Manager();
 
-  //action type constant
-  const SAY_HI = "SAY_HI";
+    //action type constant
+    const SAY_HI = "SAY_HI";
 
-  var reducer = (action, manager) => { console.log('hi'); };
+    var reducer = (action, manager) => { console.log('hi'); };
 
-  // bad parameters
-  expect(() => { manager.addReducer(1); }).toThrow();
-  expect(() => { manager.addReducer(reducer); }).toThrow();
-  expect(() => { manager.addReducer(reducer, SAY_HI); }).toThrow();
+    // bad parameters
+    expect(() => { manager.addReducer(1); }).toThrow();
+    expect(() => { manager.addReducer(reducer); }).toThrow();
+    expect(() => { manager.addReducer(reducer, SAY_HI); }).toThrow();
 
-  manager.addReducer(reducer, [SAY_HI]);
-  expect(manager.getReducers(SAY_HI)).toEqual([reducer]);
+    manager.addReducer(reducer, [SAY_HI]);
+    expect(manager.getReducers(SAY_HI)).toEqual([reducer]);
 
+  });
+
+  /**
+   * @description - Tests removing a reducer
+   */
+  test("Removing a reducer", () => {
+    var manager = new Manager();
+
+    //action type constant
+    const SAY_HI = "SAY_HI";
+
+    // test 'removeReducer'
+    var reducer = (action, manager) => { console.log("hi"); };
+    manager.addReducer(reducer, [SAY_HI]);
+    manager.removeReducer(reducer, SAY_HI);
+    expect(() => { manager.getReducers(SAY_HI); }).toThrow();
+
+    // test 'removeReducerFromSelect'
+    manager.addReducer(reducer, [SAY_HI]);
+    expect(() => { manager.removeReducerFromSelect(reducer, SAY_HI); }).toThrow();
+    manager.removeReducerFromSelect(reducer, [SAY_HI]);
+    expect(() => { manager.getReducers(SAY_HI); }).toThrow();
+    expect(manager._reducers[SAY_HI]).toBeUndefined();
+
+    // test 'removeReducerFromAll'
+    manager.addReducer(reducer, [SAY_HI]);
+    manager.removeReducerFromAll(reducer);
+    expect(() => { manager.getReducers(SAY_HI); }).toThrow();
+    expect(manager._reducers[SAY_HI]).toBeUndefined();
+  });
+
+  test("Reducers only get called for what they're supposed to", () => {
+    var manager = new Manager();
+    const SAY_HI = 'SAY_HI';
+    const SAY_BYE = 'SAY_BYE';
+
+    var hiTest = jest.fn(),
+      byeTest = jest.fn();
+    var hiReducer = (action, manager) => {
+      hiTest();
+    };
+    var byeReducer = (action, manager) => {
+      byeTest();
+    };
+
+    manager.addReducer(hiReducer, [SAY_HI]);
+    manager.addReducer(byeReducer, [SAY_BYE]);
+
+    manager.dispatch({'type': 'SAY_HI'});
+    expect(hiTest).toHaveBeenCalledTimes(1);
+    expect(byeTest).not.toHaveBeenCalled();
+  });
 });
-
-/**
- * @description - Tests removing a reducer
- */
-test("Removing a reducer", () => {
-  var manager = new Manager();
-
-  //action type constant
-  const SAY_HI = "SAY_HI";
-
-  // test 'removeReducer'
-  var reducer = (action, manager) => { console.log("hi"); };
-  manager.addReducer(reducer, [SAY_HI]);
-  manager.removeReducer(reducer, SAY_HI);
-  expect(() => { manager.getReducers(SAY_HI); }).toThrow();
-
-  // test 'removeReducerFromSelect'
-  manager.addReducer(reducer, [SAY_HI]);
-  expect(() => { manager.removeReducerFromSelect(reducer, SAY_HI); }).toThrow();
-  manager.removeReducerFromSelect(reducer, [SAY_HI]);
-  expect(() => { manager.getReducers(SAY_HI); }).toThrow();
-  expect(manager._reducers[SAY_HI]).toBeUndefined();
-
-  // test 'removeReducerFromAll'
-  manager.addReducer(reducer, [SAY_HI]);
-  manager.removeReducerFromAll(reducer);
-  expect(() => { manager.getReducers(SAY_HI); }).toThrow();
-  expect(manager._reducers[SAY_HI]).toBeUndefined();
-});
-
 /**
  * @description - Test adding a processor
  */
@@ -769,7 +792,6 @@ test("Saving and restoring a manager's state", () => {
   }]);
 
   var managerState = manager1.toJSON();
-  console.dir(managerState);
 
   manager2.fromJSON(managerState);
   expect(manager2.hasComponent(PHYSICS));

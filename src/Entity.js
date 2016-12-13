@@ -132,7 +132,7 @@ class Entity {
     return {
       'components': components,
       'hash': this.hash()
-    } ;
+    };
   }
 
   /**
