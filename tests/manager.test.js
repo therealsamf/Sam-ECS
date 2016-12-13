@@ -841,6 +841,30 @@ test("Adding an emit side effect function", () => {
 
 });
 
+describe("Clearing the manager's state", () => {
+  var manager;
+  beforeAll(() => {
+    manager = new Manager();
+    var entity = new Entity(manager);
+    var transformComponent = {
+      name: 'Transform',
+      state: {
+        'x': 0,
+        'y': 0
+      }
+    };
+    entity.addComponent(transformComponent);
+    manager.addEntity(entity);
+  });
+
+  test("All entity objects are empty", () => {
+    manager.clear();
+    expect(Object.keys(manager._entities).length).toBe(0);
+    expect(Object.keys(manager._entitiesByHash).length).toBe(0);
+    expect(Object.keys(manager._entitiesByComponent).length).toBe(0);
+  });
+});
+
 describe("Sorted processor entity lists", () => {
   var manager;
   var renderProcessor;

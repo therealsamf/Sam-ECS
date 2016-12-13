@@ -722,6 +722,20 @@ class Manager {
     if (this._emitFun)
       delete this._emitFun;
   }
+
+  /**
+   * @description - Clears out any state from the manager
+   */
+  clear() {
+    /* put the hash values in another data structure so we're not manipulating
+     * anything while we traverse it
+     */
+    var entityHashes = Object.keys(this._entitiesByHash);
+    var _this = this;
+    entityHashes.forEach((hash) => {
+      _this.removeEntity(_this.getEntity(hash));
+    });
+  }
 }
 
 module.exports = {
