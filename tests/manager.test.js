@@ -675,8 +675,8 @@ test("Creating an entity from components with init and remove", () => {
           'y': argObject.velocity.y
         }
       },
-      'init': (man) => {
-        testFun();
+      'init': (state, man) => {
+        testFun(state);
       },
       'remove': (man) => {
         testFun();
@@ -701,6 +701,16 @@ test("Creating an entity from components with init and remove", () => {
   ]);
 
   expect(testFun).toHaveBeenCalled();
+  expect(testFun).toHaveBeenCalledWith({
+    'pos': {
+      'x': 0,
+      'y': 1
+    },
+    'velocity': {
+      'x': 2,
+      'y': 3
+    }
+  });
 
   var entityHash = manager.getEntitiesByComponent(PHYSICS).toArray()[0];
   expect(entityHash).toBeDefined();
@@ -732,8 +742,8 @@ test("Saving and restoring a manager's state", () => {
           'y': argObject.velocity.y
         }
       },
-      'init': (man) => {
-        testFun();
+      'init': (state, man) => {
+        testFun(state);
       },
       'remove': (man) => {
         testFun();

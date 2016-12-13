@@ -169,8 +169,6 @@ class Manager {
         this._entitiesByComponent[componentName] = new FastSet();
       }
       this._entitiesByComponent[componentName].add(entity.hash());
-
-
     }
 
     // adds its component's state to the entities object

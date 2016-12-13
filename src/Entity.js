@@ -62,7 +62,8 @@ class Entity {
         ._invalidateProcessorListsByEntityComponent(this.hash(), component.name);
 
       if (this._components[component.name].init)
-        this._components[component.name].init(this._manager);
+        this._components[component.name]
+          .init(this._components[component.name].state, this._manager);
     }
   }
 
