@@ -843,6 +843,7 @@ test("Adding an emit side effect function", () => {
 
 describe("Clearing the manager's state", () => {
   var manager;
+  var testFun = jest.fn();
   beforeAll(() => {
     manager = new Manager();
     var entity = new Entity(manager);
@@ -851,6 +852,9 @@ describe("Clearing the manager's state", () => {
       state: {
         'x': 0,
         'y': 0
+      },
+      remove: () => {
+        testFun();
       }
     };
     entity.addComponent(transformComponent);
@@ -862,6 +866,11 @@ describe("Clearing the manager's state", () => {
     expect(Object.keys(manager._entities).length).toBe(0);
     expect(Object.keys(manager._entitiesByHash).length).toBe(0);
     expect(Object.keys(manager._entitiesByComponent).length).toBe(0);
+  });
+
+  test("Removal function was called", () => {
+    manager.clear();
+    expect(testFun).toHaveBeenCalledTimes(1);
   });
 });
 
