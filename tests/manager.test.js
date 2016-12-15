@@ -896,6 +896,120 @@ describe("Clearing the manager's state", () => {
   });
 });
 
+describe("Processors get updated by their inserted order", () => {
+  var manager;
+  var testProcessor1,
+    testProcessor2,
+    testProcessor3;
+
+  var testComponent1 = {
+    'name': 'TestComponent1',
+    'state': {
+      'test': 'this is a test'
+    }
+  },
+    testComponent2 = {
+      'name': 'TestComponent2',
+      'state': {
+        'test': 'this is a test'
+      }
+    };
+
+  var testFun = jest.fn();
+  class TestProcessor1 extends Processor {
+    update(entities) {
+      testFun(entities.toArray());
+    }
+    getComponentNames() {
+      return new Set(['TestComponent1']);
+    }
+  } 
+
+  class TestProcessor2 extends Processor {
+    update(entities) {
+      testFun(entities.toArray());
+    }
+    getComponentNames() {
+      return new Set(['TestComponent2']);
+    }
+  }
+
+  class TestProcessor3 extends Processor {
+    update(entities) {
+      testFun(entities.toArray());
+    }
+
+    getComponentNames() {
+      return new Set(['TestComponent1', 'TestComponent2']);
+    }
+  }
+
+  var entity1,
+    entity2,
+    entity3;
+
+  beforeEach(() => {
+    manager = new Manager();
+    manager.addComponentToLibrary('TestComponent1', () => {
+      return testComponent1;
+    });
+    manager.addComponentToLibrary('TestComponent2', () => {
+      return testComponent2;
+    });
+
+    entity1 = manager.addEntityFromComponents([{
+      'name': 'TestComponent1',
+      'args': {}
+    }]);
+    entity2 = manager.addEntityFromComponents([{
+      'name': 'TestComponent2',
+      'args': {}
+    }]);
+    entity3 = manager.addEntityFromComponents([{
+      'name': 'TestComponent1',
+      'args': {}
+    },
+    {
+      'name': 'TestComponent2',
+      'args': {}
+    }]);
+
+
+    testProcessor1 = new TestProcessor1(manager, 'testProcessor1');
+    testProcessor2 = new TestProcessor2(manager, 'testProcessor2');
+    testProcessor3 = new TestProcessor3(manager, 'testProcessor3');
+  });
+
+  test("Gets called in the correct order", () => {
+    manager.addProcessor(testProcessor2);
+    manager.addProcessor(testProcessor1);
+    manager.update();
+    expect(testFun).toHaveBeenLastCalledWith([entity1, entity3]);
+    expect(testFun).not.toHaveBeenLastCalledWith([entity2, entity3]);
+
+  });
+
+  test("Works correctly even when removing a processor", () => {
+    manager.addProcessor(testProcessor1);
+    manager.addProcessor(testProcessor2);
+    manager.addProcessor(testProcessor3);
+    manager.removeProcessor(testProcessor3);
+    manager.update();
+    expect(testFun).toHaveBeenLastCalledWith([entity2, entity3]);
+    expect(testFun).not.toHaveBeenLastCalledWith([entity1, entity3]);
+  });
+
+  test("Words correctly for multiple update loops", () => {
+    manager.addProcessor(testProcessor2);
+    manager.addProcessor(testProcessor1);
+    for (var i = 0; i < 3; i++) {
+      manager.update();
+      expect(testFun).toHaveBeenLastCalledWith([entity1, entity3]);
+      expect(testFun).not.toHaveBeenLastCalledWith([entity2, entity3]);
+    }
+  });
+});
+
 describe("Sorted processor entity lists", () => {
   var manager;
   var renderProcessor;

@@ -69,6 +69,7 @@ class Manager {
     };
     this._processors = {};
     this._processorsCachedEntityLists = {};
+    this._processorOrder = 0;
 
     /* keeps a set of all the hashes so to not get any collisions 
      * (even though very unlikely)
@@ -389,6 +390,7 @@ class Manager {
       this.removeProcessor(processor);
     }
 
+    processor.order = this._processorOrder++;
     this._processors[processor.getName()] = processor;
   }
 
@@ -429,7 +431,13 @@ class Manager {
    * defined by the processor
    */
   update() {
-    for (var processorName in this._processors) {
+    var _this = this;
+    var processorNameList = Object.keys(this._processors).sort(
+      (processorNameA, processorNameB) => {
+        return _this._processors[processorNameA].order - _this._processors[processorNameB].order
+      }
+    );
+    for (var processorName of processorNameList) {
       var processor = this._processors[processorName];
       // get the list of entities with the components neededfor the processor
       if (!this._processorsCachedEntityLists[processorName] ||
