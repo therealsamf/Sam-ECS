@@ -13,7 +13,7 @@ const HASH_LENGTH = 8;
 const { Manager } = require(path.resolve(source_path, "Manager.js"));
 const { Processor } = require(path.resolve(source_path, "Processor.js"));
 const { Entity } = require(path.resolve(source_path, "Entity.js"));
-
+const Family = require(path.resolve(source_path, 'Family.js'));
 
 describe("ECS-Manager", () => {
   /**
@@ -470,7 +470,7 @@ describe("Processors", () => {
 
       getComponentNames() {
         if (!this._components) {
-          this._components = new Set(['Render', 'Transform']);
+          this._components = new Family(['Render', 'Transform']);
         }
         return this._components;
       }
@@ -501,7 +501,7 @@ describe("Processors", () => {
 
       getComponentNames() {
         if (!this._components) {
-          this._components = new Set(['Render', 'Transform']);
+          this._components = new Family(['Render', 'Transform']);
         }
         return this._components;
       }
@@ -534,7 +534,7 @@ describe("Processors", () => {
 
       getComponentNames() {
         if (!this._components) {
-          this._components = new Set(['Render', 'Transform']);
+          this._components = new Family(['Render', 'Transform']);
         }
         return this._components;
       }
@@ -560,7 +560,7 @@ describe("Processors", () => {
 
       getComponentNames() {
         if (!this._components) {
-          this._components = new Set(['Render', 'Transform']);
+          this._components = new Family(['Render', 'Transform']);
         }
         return this._components;
       }
@@ -588,7 +588,7 @@ describe("Processors", () => {
 
       getComponentNames() {
         if (!this._components) {
-          this._components = new Set(['Render', 'Transform']);
+          this._components = new Family(['Render', 'Transform']);
         }
         return this._components;
       }
@@ -638,7 +638,7 @@ describe("Processors", () => {
 
       getComponentNames() {
         if (!this._components) {
-          this._components = new Set(['Render', 'Transform']);
+          this._components = new Family(['Render', 'Transform']);
         }
         return this._components;
       }
@@ -941,7 +941,7 @@ describe("Processors get updated by their inserted order", () => {
       testFun(entities.toArray());
     }
     getComponentNames() {
-      return new Set(['TestComponent1']);
+      return new Family(['TestComponent1']);
     }
   } 
 
@@ -950,7 +950,7 @@ describe("Processors get updated by their inserted order", () => {
       testFun(entities.toArray());
     }
     getComponentNames() {
-      return new Set(['TestComponent2']);
+      return new Family(['TestComponent2']);
     }
   }
 
@@ -960,7 +960,7 @@ describe("Processors get updated by their inserted order", () => {
     }
 
     getComponentNames() {
-      return new Set(['TestComponent1', 'TestComponent2']);
+      return new Family(['TestComponent1', 'TestComponent2']);
     }
   }
 
@@ -1043,7 +1043,7 @@ describe("Sorted processor entity lists", () => {
 
     getComponentNames() {
       if (!this._components) {
-        this._components = new Set(['Render', 'Transform']);
+        this._components = new Family(['Render', 'Transform']);
       }
       return this._components;
     }
@@ -1190,6 +1190,84 @@ describe("Sorted processor entity lists", () => {
 
     manager.update();
     expect(testFun1).toHaveBeenCalledWith([testHash2, testHash1]);
+  });
+});
+
+describe("Using families to define entities given to processors", () => {
+  var manager;
+  var entity1,
+    entity2,
+    entity3;
+  var entity1Hash,
+    entity2Hash,
+    entity3Hash;
+  var renderProcessor;
+  var testFun1;
+
+  class RenderProcessor extends Processor{
+    update(entities) {
+      testFun1(entities.toArray());
+    }
+
+    getComponentNames() {
+      if (!this._components) {
+        this._components = new Family(['Render', 'Transform'], ['Physics']);
+      }
+      return this._components;
+    }
+  }
+
+  beforeEach(() => {
+    testFun1 = jest.fn();
+    manager = new Manager();
+    entity1 = new Entity(manager);
+    entity1Hash = entity1.hash();
+    entity1.addComponent({
+      'name': 'Transform',
+      'state': {
+
+      }
+    });
+
+    entity2 = new Entity(manager);
+    entity2Hash = entity2.hash();
+    entity2.addComponent({
+      'name': 'Render',
+      'state': {
+
+      }
+    });
+    entity2.addComponent({
+      'name': 'Transform',
+      'state': {
+
+      }
+    });
+
+    entity3 = new Entity(manager);
+    entity3Hash = entity3.hash();
+    entity3.addComponent({
+      'name': 'Physics',
+      'state': {
+
+      }
+    });
+    entity3.addComponent({
+      'name': 'Render',
+      'state': {
+
+      }
+    });
+    manager.addEntity(entity1);
+    manager.addEntity(entity2);
+    manager.addEntity(entity3);
+    manager.addProcessor(new RenderProcessor(manager, "RenderProcessor"));
+  });
+
+
+  test("Only include good entities", () => {
+    manager.update();
+    expect(testFun1).toHaveBeenCalledWith([entity2Hash]);
   });
 });
 

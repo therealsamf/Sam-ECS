@@ -459,18 +459,10 @@ class Manager {
   _invalidateProcessorLists(entity) {
     var components = entity.getComponents();
     for (var processorName in this._processors) {
-      var shouldInvalidate = true;
-      for (var componentName of 
-        this._processors[processorName].getComponentNames()) {
-        if (!(componentName in components)) {
-          shouldInvalidate = false;
-          break;
-        }
-      }
-
-      if (shouldInvalidate && 
-        this._processorsCachedEntityLists[processorName] !== undefined)
+      if (this._processors[processorName].getComponentNames().testEntity(entity) &&
+        this._processorsCachedEntityLists[processorName] !== undefined) {
         this._processorsCachedEntityLists[processorName].invalid = true;
+      }
     }
   }
 
@@ -529,9 +521,9 @@ class Manager {
    * @description - Updates the list of entities that will be passed down to
    * the given processor
    * @param {String} processorName - name of the processor
-   * @param {Set} componentSet - components returned by Processor.getComponentNames()
+   * @param {Family} family - components returned by Processor.getComponentNames()
    */
-  _fetchProcessorEntityList(processorName, componentSet) {
+  _fetchProcessorEntityList(processorName, family) {
     // if it's currently undefined, create a new object for it
     if (!this._processorsCachedEntityLists[processorName]) {
       this._processorsCachedEntityLists[processorName] = {};
@@ -546,7 +538,7 @@ class Manager {
         cachedListObject.compare
       ) :
         new FastSet(Object.keys(this._entitiesByHash));
-    for (var component of componentSet) {
+    for (var component of family.getHaves().toArray()) {
       /* none of the entities in the manager have a required component of the
        * processor, return empty set
        */
@@ -555,6 +547,11 @@ class Manager {
         return;
       }
       set = set.intersection(this.getEntitiesByComponent(component));
+    }
+    for (var component of family.getCannotHaves().toArray()) {
+      set = set.difference(this.getEntitiesByComponent(component));
+      if (set.length <= 0)
+        break;
     }
     
     cachedListObject.set = set;

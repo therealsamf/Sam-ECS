@@ -16,8 +16,20 @@ class Family {
     if (typeof cannotHave == 'object') {
       cannotHave = new FastSet(cannotHave);
     }
-    this._mustHaves = mustHave;
-    this._cannotHave = cannotHave;
+    this._mustHaves = mustHave || new FastSet();
+    this._cannotHave = cannotHave || new FastSet();
+  }
+
+  getHaves() {
+    return this._mustHaves;
+  }
+
+  getCannotHaves() {
+    return this._cannotHave;
+  }
+
+  has(singleComponent) {
+    return this._mustHaves.has(singleComponent) && !this._cannotHave.has(singleComponent);
   }
 
   /**
