@@ -75,6 +75,16 @@ class Manager {
      * (even though very unlikely)
      */
     this._hashes = new FastSet();
+
+    this._user = undefined;
+  }
+
+  setUser(value) {
+    this._user = value;
+  }
+
+  getUser() {
+    return this._user;
   }
 
   /** 
