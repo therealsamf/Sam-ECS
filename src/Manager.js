@@ -378,9 +378,7 @@ class Manager {
     if (!unrolling) {
       action.stateCounter = ++this._stateCounter;
     }
-
     
-
     /* don't throw an error because somethings might spew out actions
      * that don't necessarily mean an console.error
      */
@@ -396,7 +394,7 @@ class Manager {
     if (!unrolling)
       this._stateQueue.push({
         'number': this._stateCounter,
-        // 'state': currentState,
+        'state': this.toJSON(),
         'action': action,
         'revert': action.revert
       });
@@ -414,13 +412,17 @@ class Manager {
     }
 
     var currentNumber = Number.MIN_SAFE_VALUE;
-    var index = 0;
+    var index = 0,
+      oldState = this.toJSON();
     while (currentNumber < number && index < this._stateQueue.length) {
+      oldState = this._stateQueue[index].state;
       currentNumber = this._stateQueue[index++].number;
     }
 
     this._stateQueue.splice(0, index + 1);
 
+    this.clear();
+    this.fromJSON(oldState);
     this.fromJSON(state);
   }
 
