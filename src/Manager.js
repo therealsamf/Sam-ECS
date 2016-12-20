@@ -421,7 +421,6 @@ class Manager {
 
     this._stateQueue.splice(0, index + 1);
 
-    this.clear();
     this.fromJSON(state);
   }
 
