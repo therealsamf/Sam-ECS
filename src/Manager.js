@@ -397,7 +397,8 @@ class Manager {
       this._stateQueue.push({
         'number': this._stateCounter,
         // 'state': currentState,
-        'action': action
+        'action': action,
+        'revert': action.revert
       });
   }
 
@@ -422,6 +423,33 @@ class Manager {
 
     this.clear();
     this.fromJSON(state);
+  }
+
+  /**
+   * @description - Rolls back the state of the manager by reverting actions, 
+   * instead of replacing the current state
+   * @param {Number} - the number indicating at what state to roll back to
+   */
+  rollback_actions(number) {
+    if (number > this._stateCounter) {
+      this._stateCounter = number;
+    }
+
+    var index = this._stateQueue.length - 1;
+    if (index < 0) {
+      return
+    }
+
+    var currentNumber = this._stateQueue[index].number;
+    while (currentNumber > number && index >= 0) {
+      currentNumber = this._stateQueue[index].number;
+      if (currentNumber != number)  {
+        this._stateQueue[index].revert();
+        index--;
+      }
+    }
+
+    this._stateQueue.splice(0, index + 1);
   }
 
   /**

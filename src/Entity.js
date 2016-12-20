@@ -127,7 +127,7 @@ class Entity {
   _toJSON() {
     var components = {};
     for (var componentName in this._components) {
-      components[componentName] = this._components[componentName].state;
+      components[componentName] = Object.assign({}, this._components[componentName].state);
     }
     return {
       'components': components,

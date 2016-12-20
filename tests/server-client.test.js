@@ -380,12 +380,6 @@ describe("Multiple clients and server", () => {
       client2.unroll();
     });
 
-    // client1.addDispatchSideEffect((action, unrolling) => {
-    //   if (!unrolling) {
-    //     server.dispatch(action);
-    //   }
-    // });
-
     client2.addDispatchSideEffect((action, unrolling) => {
       if (!unrolling) {
         server.dispatch(action);
@@ -448,5 +442,137 @@ describe("Multiple clients and server", () => {
     server.dispatch(action2);
     expect(client2.toJSON()).toEqual(client1.toJSON());
 
+  });
+});
+
+function getTransformState (entity, manager) {
+  return manager.getEntityState(entity).Transform.state;
+}
+
+function getRenderState (entity, manager) {
+  return manager.getEntityState(entity).Render.state;
+}
+
+describe("Rolling back using actions", () => {
+  var manager1,
+    manager2,
+    entity;
+
+  beforeEach(() => {
+    manager1 = new Manager();
+    manager2 = new Manager();
+
+    applyComponentGenerators(manager1);
+    applyComponentGenerators(manager2);
+
+    entity = manager1.addEntityFromComponents([
+      renderComponent,
+      transformComponent
+    ]);
+
+    manager2.addEntityFromComponents([
+      renderComponent,
+      transformComponent
+    ], entity);
+
+    manager1.addReducer(moveReducer, ['MOVE']);
+    manager1.addReducer(relayerReducer, ['RELAYER']);
+    manager2.addReducer(moveReducer, ['MOVE']);
+    manager2.addReducer(relayerReducer, ['RELAYER']);
+
+  });
+
+  test("State queue is updated properly", () => {
+    // var firstState = manager1.toJSON();
+
+    var testFun1 = jest.fn(),
+      testFun2 = jest.fn();
+    manager1.dispatch({
+      'type': 'MOVE',
+      'x': 1,
+      'y': 1,
+      'entity': entity,
+      'revert': () => { testFun1(); }
+    });
+
+    manager1.dispatch({
+      'type': 'RELAYER',
+      'layer': 3,
+      'entity': entity,
+      'revert': () => { testFun1(); }
+    });
+
+    manager2.dispatch({
+      'type': 'MOVE',
+      'x': 2,
+      'y': 2,
+      'entity': entity,
+      'revert': () => { testFun2(); }
+    });
+
+    manager2.dispatch({
+      'type': 'RELAYER',
+      'layer': 4,
+      'entity': entity,
+      'revert': () => { testFun2(); }
+    });
+
+    manager1.rollback_actions(0);
+    expect(manager1._stateQueue.length).toBe(2);
+    expect(testFun1).toHaveBeenCalledTimes(2);
+
+    manager2.rollback_actions(1);
+    expect(manager2._stateQueue.length).toBe(1);
+    expect(testFun2).toHaveBeenCalledTimes(1);
+  });
+
+  test("Rolling back gets to correct previous state", () => {
+    var transformState = getTransformState(entity, manager1),
+      firstX = transformState.x,
+      firstY = transformState.y;
+
+    var firstState = manager1.toJSON();
+    manager1.dispatch({
+      'type': 'MOVE',
+      'x': 4,
+      'y': 4,
+      'entity': entity,
+      'revert': () => {
+        transformState.x = firstX;
+        transformState.y = firstY;
+      }
+    });
+
+    var secondState = manager1.toJSON();
+
+    var renderState = getRenderState(entity, manager1),
+      firstLayer = renderState.layer;
+
+    manager1.dispatch({
+      'type': 'RELAYER',
+      'layer': 3,
+      'entity': entity,
+      'revert': () => {
+        renderState.layer = firstLayer;
+      }
+    });
+
+    var thirdState = manager1.toJSON();
+
+    expect(firstState).not.toEqual(secondState);
+    expect(firstState).not.toEqual(thirdState);
+    expect(secondState).not.toEqual(thirdState);
+
+    manager1.rollback_actions(0);
+    expect(manager1._stateQueue.length).toBe(2);
+    expect(manager1.toJSON()).toEqual(firstState);
+
+    manager1.unroll();
+    expect(manager1.toJSON()).toEqual(thirdState);
+
+    manager1.rollback_actions(1);
+    expect(manager1.toJSON()).toEqual(secondState);
+    manager1.unroll();
+    expect(manager1.toJSON()).toEqual(thirdState);
   });
 });
