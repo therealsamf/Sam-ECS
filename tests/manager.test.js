@@ -823,6 +823,79 @@ describe("Robustness", () => {
     expect(testFun).toHaveBeenCalledTimes(2);
 
   });
+
+  test("Merging states", () => {
+    const PHYSICS = 'Physics';
+
+    //two managers, each with the same component libraries
+    var manager1 = new Manager();
+    var manager2 = new Manager();
+
+
+    var testFun = jest.fn();
+
+    function physicsGenerator(argObject, manager) {
+      return {
+        'state': {
+          'pos': {
+            'x': argObject.pos.x,
+            'y': argObject.pos.y
+          },
+          'velocity': {
+            'x': argObject.velocity.x,
+            'y': argObject.velocity.y
+          }
+        },
+        'init': (state, man) => {
+          testFun(state);
+        },
+        'remove': (man) => {
+          testFun();
+        }
+      };
+    }
+
+    manager1.addComponentToLibrary(PHYSICS, physicsGenerator);
+    manager2.addComponentToLibrary(PHYSICS, physicsGenerator);
+
+    manager1.addEntityFromComponents([{
+      'name': PHYSICS,
+      'args': {
+        'pos': {
+          'x': 0,
+          'y': 1
+        },
+        'velocity': {
+          'x': 2,
+          'y': 3
+        }
+      }
+    }]);
+
+    manager2.addEntityFromComponents([{
+      'name': PHYSICS,
+      'args': {
+        'pos': {
+          'x': 3,
+          'y': 4
+        },
+        'velocity': {
+          'x': 5,
+          'y': 6
+        }
+      }
+    }]);
+
+    var managerState = manager1.toJSON();
+
+    manager2.fromJSON(managerState);
+    expect(manager2.hasComponent(PHYSICS));
+    expect(Object.keys(manager2._entitiesByHash)).not
+      .toEqual(Object.keys(manager1._entitiesByHash));
+    expect(Object.keys(manager2._entitiesByHash).length).toEqual(2);
+    expect(Object.keys(manager2._entitiesByHash))
+      .toContain(Object.keys(manager1._entitiesByHash)[0]);
+  });
 });
 
 describe("Side effects", () => {
