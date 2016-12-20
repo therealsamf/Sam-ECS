@@ -77,6 +77,9 @@ class Manager {
     this._hashes = new FastSet();
 
     this._user = undefined;
+
+    this._stateCounter = 0;
+    this._stateQueue = [];
   }
 
   setUser(value) {
@@ -368,24 +371,67 @@ class Manager {
    * @description - Dispatches an action to appropriate reducers
    * @param {Object} action - the action to dispatch
    */
-  dispatch(action) {
+  dispatch(action, unrolling) {
     if (action.type === undefined) {
       throw "Action must have an action type!";
     }
+    if (!unrolling) {
+      action.stateCounter = ++this._stateCounter;
+    }
 
-    if (this._dispatchFun)
-      this._dispatchFun(action);
+    
 
     /* don't throw an error because somethings might spew out actions
      * that don't necessarily mean an console.error
      */
-    if (!this._reducers[action.type])
-      return;
-    for (var fun of this._reducers[action.type]) {
-      fun(action, this);
+    if (this._reducers[action.type]) {
+      for (var fun of this._reducers[action.type]) {
+        fun(action, this);
+      }
     }
 
-    
+    if (this._dispatchFun)
+      this._dispatchFun(action, unrolling);
+
+    if (!unrolling)
+      this._stateQueue.push({
+        'number': this._stateCounter,
+        // 'state': currentState,
+        'action': action
+      });
+  }
+
+  /**
+   * @description - Rolls the state of the manager back. Throws away any state
+   * staler than the 'number'
+   * @param {Number} number - number indicating how stale the state is
+   * @param {Object} state - the state object to rollback to
+   */
+  rollback(number, state) {
+    if (number > this._stateCounter) {
+      this._stateCounter = number;
+    }
+
+    var currentNumber = Number.MIN_SAFE_VALUE;
+    var index = 0;
+    while (currentNumber < number && index < this._stateQueue.length) {
+      currentNumber = this._stateQueue[index++].number;
+    }
+
+    this._stateQueue.splice(0, index + 1);
+
+    this.clear();
+    this.fromJSON(state);
+  }
+
+  /**
+   * @description - Takes the entire state queue and re applies all of the states
+   * This typically would happen after a rollback
+   */
+  unroll() {
+    for (var action of this._stateQueue) {
+      this.dispatch(action.action, true);
+    }
   }
 
   /**
