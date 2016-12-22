@@ -5,13 +5,13 @@
  * @author - Samuel Faulkner
  */
 
+const Dict = require('collections/dict.js');
+
 class Entity {
   constructor(manager) {
-    this._manager = manager;
-    if (!this._manager) {
-      throw "'manager' must be defined!";
-    }
-    this._components = {};
+    this._manager = manager || null;
+    
+    this._components = new Dict();
   }
 
   clearManager() {
@@ -29,11 +29,15 @@ class Entity {
     return this._hash;
   }
 
+  /**
+   * @description - Resets the hash value associated with this entity
+   * @param {String} value - the new hash value
+   */
   _setHash(value) {
     this._hash = value;
     //reset the hash value in each component 
-    for (var componentName in this._components) {
-      this._components[componentName].entity = value;
+    for (var componentName of this._components.keys()) {
+      this._components.get(componentName).set(entity, value);
     }
   }
 
@@ -50,20 +54,22 @@ class Entity {
     }
 
     // this should create a copy of the state
-    this._components[component.name] = {
+    this._components.set(component.name, new Dict({
       'state': Object.assign({}, component.state),
       'init': component.init,
       'remove': component.remove
-    }
+    }));
 
     if (this._manager) {
       this._manager._addToComponentList(component.name, this.hash());
-      this._manager
-        ._invalidateProcessorListsByEntityComponent(this.hash(), component.name);
+      // this._manager
+      //   ._invalidateProcessorListsByEntityComponent(this.hash(), component.name);
+    }
 
-      if (this._components[component.name].init)
-        this._components[component.name]
-          .init(this._components[component.name].state, this._manager);
+    var componentDict = this._components.get(component.name),
+      initFunction = componentDict.get('init');
+    if (initFunction) {
+      initFunction(componentDict.get('state'));
     }
   }
 
@@ -83,10 +89,10 @@ class Entity {
    * name
    */
   getComponent(name) {
-    if (!(name in this._components)) {
+    if (!this._components.has(name)) {
       throw "'" + name + "' isn't a component of this entity!";
     }
-    return this._components[name];
+    return this._components.get(name);
   }
 
   /**
@@ -94,14 +100,16 @@ class Entity {
    * @param {String} name - the name of the component to be deleted
    */
   removeComponent(name) {
-    if (!(name in this._components)) {
-      throw "'" + name + "' isn't a component of this entity!";
+    if (!this._components.has(name)) {
+      throw new TypeError("'" + name + "' isn't a component of this entity!");
     }
 
-    if (this._components[name].remove)
-      this._components[name].remove(this._manager);
+    var componentObject = this._components.get(name),
+      removeFunction = componentObject.get('remove');
+    if (removeFunction)
+      removeFunction(/*this._manager*/);
 
-    delete this._components[name];
+    this._components.delete(name);
 
     if (this._manager) {
       if (this._manager.hasComponent(name) && 
@@ -126,8 +134,8 @@ class Entity {
    */
   _toJSON() {
     var components = {};
-    for (var componentName in this._components) {
-      components[componentName] = Object.assign({}, this._components[componentName].state);
+    for (var componentName of this._components.keys()) {
+      components[componentName] = Object.assign({}, this._components.get(componentName).get('state'));
     }
     return {
       'components': components,
@@ -149,6 +157,4 @@ class Entity {
   }
 }
 
-module.exports = {
-  Entity
-};
+module.exports = Entity;

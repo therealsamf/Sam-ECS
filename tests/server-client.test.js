@@ -58,6 +58,24 @@ function relayerReducer(action, manager) {
   renderState.layer = action.layer;
 }
 
+function addEntityReducer(action, manager) {
+  manager.addEntityFromComponents([
+    {
+      'name': 'Render',
+      'args': {
+        'layer': 4
+      }
+    },
+    {
+      'name': 'Transform',
+      'args': {
+        'x': 3,
+        'y': 4
+      }
+    }
+  ]);
+}
+
 describe("Rolling back", () => {
   var manager1,
     manager2,
@@ -228,7 +246,7 @@ describe("Unrolling", () => {
     });
 
     var newState = manager1.toJSON();
-    manager1.rollback(1, state);
+    manager1.rollback(1, state);            
     expect(manager1._stateQueue.length).toBe(2);
     expect(manager1.toJSON()).toEqual(state);
     manager1.unroll();
@@ -575,4 +593,112 @@ describe("Rolling back using actions", () => {
     manager1.unroll();
     expect(manager1.toJSON()).toEqual(thirdState);
   });
+});
+
+describe("More robust testing", () => {
+  var client1,
+    client2,
+    server,
+    entity;
+
+  beforeEach(() => {
+    client1 = new Manager();
+    client2 = new Manager();
+    server = new Manager();
+
+    applyComponentGenerators(client1);
+    applyComponentGenerators(client2);
+    applyComponentGenerators(server);
+
+    entity = client1.addEntityFromComponents([
+      renderComponent,
+      transformComponent
+    ]);
+
+    client2.addEntityFromComponents([
+      renderComponent,
+      transformComponent
+    ], entity);
+
+    server.addEntityFromComponents([
+      renderComponent,
+      transformComponent
+    ], entity);
+
+    client1.addReducer(moveReducer, ['MOVE']);
+    client1.addReducer(relayerReducer, ['RELAYER']);
+    client1.addReducer(addEntityReducer, ['ADD']);
+    client2.addReducer(moveReducer, ['MOVE']);
+    client2.addReducer(relayerReducer, ['RELAYER']);
+    client2.addReducer(addEntityReducer, ['ADD']);
+
+    client1.addEmitSideEffect((eventType, args) => {
+      server.emit(eventType, args);
+    });
+
+    client2.addEmitSideEffect((eventType, args) => {
+      server.emit(eventType, args);
+    });
+
+    server.addDispatchSideEffect((action) => {
+      client1.rollback(server._stateCounter, server.toJSON());
+      client1.unroll();
+      client2.rollback(server._stateCounter, server.toJSON());
+      client2.unroll();
+    });
+
+    client1.addListener("CLIENT_ONLY_EVENT", (args, manager) => {
+      manager.dispatch({
+        'type': 'ADD'
+      });
+    });
+
+    client2.addListener("CLIENT_ONLY_EVENT", (args, manager) => {
+      manager.dispatch({
+        'type': 'ADD'
+      });
+    });
+
+    client1.addListener("BOTH_EVENT", (args, manager) => {
+      manager.dispatch({
+        'type': 'MOVE',
+        'x': args.x,
+        'y': args.y,
+        'entity': args.entity
+      });
+    });
+
+    client2.addListener("BOTH_EVENT", (args, manager) => {
+      manager.dispatch({
+        'type': 'MOVE',
+        'x': args.x,
+        'y': args.y,
+        'entity': args.entity
+      });
+    });
+
+    server.addListener("BOTH_EVENT", (args, manager) => {
+      manager.dispatch({
+        'type': 'MOVE',
+        'x': args.x,
+        'y': args.y,
+        'entity': args.entity
+      });
+    });
+  });
+
+  test("General client-server approach isn't inherently breaking anything", () => {
+    client1.emit("BOTH_EVENT", {'x': 4, 'y': 5});
+    // expect(client1._stateCounter).toBe(server._stateCounter);
+    // expect(client1.toJSON()).toEqual(client2.toJSON());
+  });
+
+  // test("Reducer that adds an entity isn't creating duplicates", () => {
+    
+
+  // });
+
+  // test("Using events and emit side effects to resemble server-client architecture", () => {
+
+  // });
 });
