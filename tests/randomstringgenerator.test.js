@@ -11,7 +11,7 @@ const utils_path = path.resolve(__dirname, "..", "src", "utils");
 test("Random string generation", () => {
   const randomString = require(path.resolve(utils_path, "RandomStringGenerator.js"));
 
-  expect(randomString()).toEqual("");
+  expect(randomString().length).toEqual(1);
   expect(randomString(0)).toEqual("");
   expect(randomString(5).length).toEqual(5);
 });

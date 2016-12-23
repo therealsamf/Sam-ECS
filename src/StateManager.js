@@ -106,7 +106,7 @@ class StateManager {
    * this entity to a substate
    */
   addEntity(entity, subState) {
-    if (this._entities.has(entity)) {
+    if (this._entities.has(entity.hash())) {
       this.removeEntity(entity);
     }
 
@@ -117,13 +117,15 @@ class StateManager {
       this._addEntityToComponentList(entity.hash(), componentName);
     }
 
-    this.addEntitiesToSubState(entitySubState, entity.hash());
     this._entities.set(entity.hash(), new Dict({
       'components': components,
-      'object': entity
+      'object': entity,
+      'subState': entitySubState
     }));
+    this.addEntityToSubState(entitySubState, entity.hash());
 
-    entity.setManager(this._parent);
+
+    entity.setManager(this);
   }
 
   /**
@@ -135,9 +137,10 @@ class StateManager {
       throw new TypeError(entity.hash() + " isn't being tracked by the manager!");
     }
 
-    for (var componentName of entity.getComponents.keys()) {
+    for (var componentName of entity.getComponents().keys()) {
       this._removeEntityFromComponentList(entity.hash(), componentName);
     }
+    this.removeEntityFromSubState(this._entities.get(entity.hash()).get('subState'), entity.hash());
 
     this._entities.delete(entity.hash());
 
@@ -204,7 +207,18 @@ class StateManager {
 
     var subState = this._subStates.get(name);
     for (var entityHash of entities) {
+      if (!this._entities.has(entityHash)) {
+        throw new TypeError("'" + entityHash + "' isn't being tracked by the State Manager!");
+      }
+
+      var entityObject = this._entities.get(entityHash);
+      var previousSubState = entityObject.get('subState');
+      if (this._subStates.get(previousSubState).has(entityObject.get('object').hash())) {
+        this.removeEntityFromSubState(entityObject.get('subState'), entityObject.get('object').hash());
+      }
+
       subState.add(entityHash);
+      this._entities.get(entityHash).set('subState', name);
     }
   }
 
@@ -215,6 +229,34 @@ class StateManager {
    */
   addEntityToSubState(name, entity) {
     this.addEntitiesToSubState(name, [entity]);
+  }
+
+  removeEntitiesFromSubState(name, entities) {
+    if (!this._subStates.has(name)) {
+      throw new TypeError("Can't remove entities from an unknown substate: " + name);
+    }
+
+    var subState = this._subStates.get(name);
+    for (var entityHash of entities) {
+      if (!this._entities.has(entityHash)) {
+        throw new TypeError("'" + entityHash + "' isn't being tracked by the State Manager!");
+      }
+      if (!subState.has(entityHash)) {
+        throw new TypeError("'" + entityHash + "' isn't in substate: '" + name + "'!");
+      }
+
+      subState.delete(entityHash);
+      this._entities.get(entityHash).set('subState', 'default');
+    }
+  }
+
+  /**
+   * @description - Removes a single entity from a substate
+   * @param {String} name - the substate that will be removed from
+   * @param {String} entityHash - the hash of the entity that will be removed
+   */
+  removeEntityFromSubState(name, entityHash) {
+    this.removeEntitiesFromSubState(name, [entityHash]);
   }
 
   /**
@@ -229,17 +271,18 @@ class StateManager {
     }
 
     var subState = this._subStates.get(name);
-    var entities =  this._entities.filter((entityHash) => {
-      return subState.has(entityHash);
+    var entities =  this._entities.filter((value, key, dict) => {
+      return subState.has(key);
     });
 
     var returnDict = new Dict();
-    for (var entity of entities) {
+    for (var entity of entities.keys()) {
       returnDict.set(entity, this._entities.get(entity));
     }
 
     return returnDict;
   }
 }
+
 
 module.exports = StateManager;

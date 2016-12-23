@@ -5,12 +5,19 @@
  * @author - Samuel Faulkner
  */
 
+//node imports
 const Dict = require('collections/dict.js');
+
+//user imports
+const StringGenerator = require('./utils/RandomStringGenerator.js');
+
+//constants
+const HASH_LENGTH = 8;
 
 class Entity {
   constructor(manager) {
     this._manager = manager || null;
-    
+
     this._components = new Dict();
   }
 
@@ -24,7 +31,7 @@ class Entity {
 
   hash() {
     if (this._hash === undefined) {
-      this._hash = this._manager.generateHash();
+      this._hash = StringGenerator(8);
     }
     return this._hash;
   }
@@ -61,7 +68,7 @@ class Entity {
     }));
 
     if (this._manager) {
-      this._manager._addToComponentList(component.name, this.hash());
+      this._manager._addEntityToComponentList(this.hash(), component.name);
       // this._manager
       //   ._invalidateProcessorListsByEntityComponent(this.hash(), component.name);
     }
@@ -114,9 +121,9 @@ class Entity {
     if (this._manager) {
       if (this._manager.hasComponent(name) && 
         this._manager.getEntitiesByComponent(name).has(this.hash()))
-        this._manager._removeHashFromComponentList(name, this.hash());
+        this._manager._removeEntityFromComponentList(this.hash(), name);
 
-      this._manager._invalidateProcessorListsByEntityComponent(this.hash(), name);
+      // this._manager._invalidateProcessorListsByEntityComponent(this.hash(), name);
     }
   }
 
@@ -124,7 +131,7 @@ class Entity {
    * @description - Calls remove component on every component
    */
   removeComponents() {
-    for (var key in this._components)
+    for (var key of this._components.keys())
       this.removeComponent(key);
   }
 

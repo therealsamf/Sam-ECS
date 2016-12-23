@@ -5,12 +5,25 @@
  * @param {int} length - length of the string
  * @return {String} - random string of given length
  */
-module.exports = (length = 0) => {
+
+//node imports
+const Set = require('collections/set.js');
+
+//constants
+const previousStrings = new Set(),
+  possible = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+
+var fun = (length = 1) => {
   var text = "";
-  var possible = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+  while (text.length < length || previousStrings.has(text)) {
+    text = "";
+    
+    for (var i = 0; i < length; i++ )
+        text += possible.charAt(Math.floor(Math.random() * possible.length));
+  }
 
-  for (var i = 0; i < length; i++ )
-      text += possible.charAt(Math.floor(Math.random() * possible.length));
-
+  previousStrings.add(text);
   return text;
 };
+
+module.exports = fun;
