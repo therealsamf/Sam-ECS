@@ -54,7 +54,7 @@ class Entity {
    * must have at least two fields: 'name' and 'state'. the 'state' field also
    * must be an object
    */
-  addComponent(component) {
+  addComponent(component, notifyManager = true) {
     if (!(component.name !== undefined && component.state !== undefined && 
       typeof component.state === 'object')) {
       throw "Component must have 'name' and 'state'!";
@@ -69,8 +69,9 @@ class Entity {
 
     if (this._manager) {
       this._manager._addEntityToComponentList(this.hash(), component.name);
-      // this._manager
-      //   ._invalidateProcessorListsByEntityComponent(this.hash(), component.name);
+      if (notifyManager)
+        this._manager
+          ._invalidateProcessorListsByEntityComponent(this.hash(), component.name);
     }
 
     var componentDict = this._components.get(component.name),
@@ -106,7 +107,7 @@ class Entity {
    * @description - Deletes a component from the entity
    * @param {String} name - the name of the component to be deleted
    */
-  removeComponent(name) {
+  removeComponent(name, notifyManager = true) {
     if (!this._components.has(name)) {
       throw new TypeError("'" + name + "' isn't a component of this entity!");
     }
@@ -123,44 +124,51 @@ class Entity {
         this._manager.getEntitiesByComponent(name).has(this.hash()))
         this._manager._removeEntityFromComponentList(this.hash(), name);
 
-      // this._manager._invalidateProcessorListsByEntityComponent(this.hash(), name);
+      if (notifyManager) {
+        this._manager._invalidateProcessorListsByEntityComponent(this.hash(), name);
+      }
     }
   }
 
   /**
    * @description - Calls remove component on every component
    */
-  removeComponents() {
+  removeComponents(notifyManager) {
     for (var key of this._components.keys())
-      this.removeComponent(key);
+      this.removeComponent(key, notifyManager);
   }
 
-  /**
-   * @description - Puts the entity into an object that can be saved
-   * @return {Object} - the entity's state
-   */
-  _toJSON() {
+  serialize() {
     var components = {};
-    for (var componentName of this._components.keys()) {
-      components[componentName] = Object.assign({}, this._components.get(componentName).get('state'));
-    }
+    this._components.forEach((value, key, dict) => {
+      components[key] = Object.assign({}, value.get('state'));
+    });
+
     return {
       'components': components,
       'hash': this.hash()
-    };
+    }
   }
 
   /**
-   * @description - Takes the object serialized from above and restores the
-   * state into this entity
-   * @param {Object} obj - the state of the entity
+   * @description - Takes the given object and implements the state
+   * given
+   * @param {Object} entityState - the object that represents the state
+   * of the entity. Most likely generated from {@link serialize}
    */
-  _fromJSON(obj) {
-    for (var componentName in obj.components) {
-      this.addComponent({'name': componentName, 
-        'state': obj.components[componentName]});
+  deserialize(entityState, componentManager) {
+    var _this = this;
+    this._components.forEach((value, key, dict) => {
+      _this.removeComponent(key, false);
+    });
+
+    this._hash = entityState.hash;
+    for (var componentName in entityState.components) {
+      this.addComponent(componentManager.createComponent(
+        componentName, 
+        entityState.components[componentName]
+      ), false);
     }
-    this._hash = obj.hash;
   }
 }
 

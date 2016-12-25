@@ -9,12 +9,24 @@
 //node imports
 const Dict = require('collections/dict.js');
 
+//user imports
+const Entity = require('./Entity.js');
+
 class ComponentManager {
-  constructor(parent) {
-    this._parent = parent;
+  constructor(stateManager) {
+    this._stateManager = stateManager;
 
     this._componentLibrary = new Dict();
 
+  }
+
+  createComponent(name, args) {
+    if (!this._componentLibrary.has(name)) {
+      throw new TypeError("Can't create component: '" + name + "'!");
+    }
+
+    var generatorFunction = this._componentLibrary.get(name);
+    return generatorFunction(args);
   }
 
   /**
@@ -51,14 +63,18 @@ class ComponentManager {
    * @returns {Entity} the entity with the components listed
    */
   createEntityFromComponents(componentList, hashValue) {
-    var entity = new Entity(this._parent);
+    var entity;
+    if (this._stateManager)
+      entity = new Entity(this._stateManager);
+    else
+      entity = new Entity();
+
     var hash = hashValue || entity.hash();
 
     entity._setHash(hash);
     for (var componentObject of componentList) {
       if (this._componentLibrary.has(componentObject.name)) {
-        var component = this._componentLibrary.get(componentObject.name)
-          (componentObject.args);
+        var component = this.createComponent(componentObject.name, componentObject.args);
         //assign the name because without it's not a valid component
         component.name = componentObject.name;
         //allow the component to know what entity it is attached to
@@ -71,3 +87,5 @@ class ComponentManager {
     return entity;
   }
 }
+
+module.exports = ComponentManager;

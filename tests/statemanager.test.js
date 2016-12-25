@@ -84,6 +84,18 @@ describe("Entities", () => {
       entity2.hash()]);
     expect(stateManager.getEntitiesByComponent('Render').toArray()).toEqual([entity1.hash()]);
   });
+
+  test("Can be cleared", () => {
+    var entity1 = new Entity();
+    var entity2 = new Entity();
+
+    stateManager.addEntity(entity1);
+    stateManager.addEntity(entity2);
+
+    stateManager.clear();
+    expect(stateManager.getSubState().keysArray().length).toBe(0);
+    expect(stateManager.getEntitySet().toArray().length).toBe(0);
+  });
 });
 
 describe("SubStates", () => {
@@ -134,9 +146,24 @@ describe("SubStates", () => {
     stateManager.removeEntity(entity2);
     expect(stateManager.getSubState('server').keysArray().length).toBe(0);
   });
+
+  test("Can be cleared correctly", () => {
+    stateManager.addSubState('client');
+
+    var entity1 = new Entity();
+    var entity2 = new Entity();
+
+    stateManager.addEntity(entity1, 'client');
+    stateManager.addEntity(entity2);
+
+    stateManager.clearSubState('client');
+
+    expect(stateManager.getEntitySet().toArray()).toEqual([entity2.hash()]);
+    expect(stateManager.getSubState('client').keysArray().length).toBe(0);
+  });
 });
 
-describe("Entities components", () => {
+describe("Entities' components", () => {
   var stateManager,
     transformComponent,
     renderComponent;
@@ -157,5 +184,143 @@ describe("Entities components", () => {
     entity.removeComponent('Transform');
     expect(() => { stateManager.getEntitiesByComponent('Transform'); }).toThrow();
     expect(stateManager.hasComponent('Transform')).toBe(false);
+  });
+});
+
+describe("Saving and restoring state", () => {
+  var stateManager,
+    transformComponent,
+    renderComponent;
+
+  beforeEach(() => {
+    stateManager = new StateManager();
+    transformComponent = Object.assign({}, tComponent);
+    renderComponent = Object.assign({}, rComponent);
+  });
+
+  test("Can be saved properly", () => {
+    var entity = new Entity(stateManager);
+
+    stateManager.addEntity(entity);
+    entity.addComponent(transformComponent);
+    entity.addComponent(renderComponent);
+
+    expect(stateManager.serializeState()).toEqual({
+      'entities': [
+        {
+          'hash': entity.hash(),
+          'components': {
+            'Transform': {
+              'x': 0,
+              'y': 0
+            },
+            'Render': {
+              'layer': 0
+            }
+          },
+          'subState': 'default'
+        }
+      ]
+    });
+
+    var newEntity = new Entity(stateManager);
+    newEntity.addComponent(Object.assign({}, transformComponent));
+    stateManager.addEntity(newEntity);
+    expect(stateManager.serializeState()).toEqual({
+      'entities': [
+        {
+          'hash': entity.hash(),
+          'components': {
+            'Transform': {
+              'x': 0,
+              'y': 0
+            },
+            'Render': {
+              'layer': 0
+            }
+          },
+          'subState': 'default'
+        },
+        {
+          'hash': newEntity.hash(),
+          'components': {
+            'Transform': {
+              'x': 0,
+              'y': 0
+            }
+          },
+          'subState': 'default'
+        }
+      ]
+    });
+  });
+
+  test("Can be restored properly", () => {
+    const ComponentManager = require('../src/ComponentManager.js');
+    var componentManager = new ComponentManager();
+
+    componentManager.addComponentToLibrary('Transform', (state) => {
+      return {
+        'name': 'Transform',
+        'state': {
+          'x': state.x,
+          'y': state.y
+        }
+      };
+    });
+
+    componentManager.addComponentToLibrary('Render', (state) => {
+      return {
+        'name': 'Render',
+        'state': {
+          'layer': state.layer
+        }
+      };
+    });
+
+    var entity1 = componentManager.createEntityFromComponents([
+      {
+        'name': 'Transform',
+        'args': {
+          'x': 3,
+          'y': 4
+        } 
+      },
+      {
+        'name': 'Render',
+        'args': {
+          'layer': 5
+        }
+      }
+    ]);
+
+    var entity2 = componentManager.createEntityFromComponents([
+      {
+        'name': 'Transform',
+        'args': {
+          'x': 6,
+          'y': 7
+        }
+      }
+    ]);
+
+    var entity3 = componentManager.createEntityFromComponents([
+      {
+        'name': 'Transform',
+        'args': {
+          'x': 6,
+          'y': 7
+        }
+      }
+    ], entity2.hash());
+
+    stateManager.addEntity(entity1);
+    stateManager.addEntity(entity2);
+    var stateManager2 = new StateManager();
+    stateManager2.addEntity(entity3);
+
+    expect(stateManager.serializeState()).not.toEqual(stateManager2.serializeState());
+    stateManager2.mergeState(stateManager.serializeState(), componentManager);
+    expect(stateManager.serializeState()).toEqual(stateManager2.serializeState());
   });
 });

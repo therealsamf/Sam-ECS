@@ -5,12 +5,15 @@
  * @author - Sam Faulkner
  */
 
+//node imports
 const Dict = require('collections/dict.js'),
   Set = require('collections/set.js');
 
+//user imports
+const Entity = require('./Entity.js');
+
 class StateManager {
-  constructor(parent) {
-    this._parent = parent;
+  constructor() {
 
     this._entities = new Dict();
     this._entitiesByComponent = new Dict();
@@ -60,7 +63,7 @@ class StateManager {
    */
   getEntityComponent(hash, component) {
     var entityComponents = this.getEntityState(hash);
-    return entityComponents.get(component);
+    return entityComponents.get(component).get('state');
   }
 
   /**
@@ -107,7 +110,7 @@ class StateManager {
    */
   addEntity(entity, subState) {
     if (this._entities.has(entity.hash())) {
-      this.removeEntity(entity);
+      this.removeEntity(entity, false);
     }
 
     var entitySubState = subState || 'default';
@@ -132,7 +135,7 @@ class StateManager {
    * @description - Removes an entity from the state manager
    * @param {Entity} entity - the entity object to be removed
    */
-  removeEntity(entity) {
+  removeEntity(entity, removeComponents = true) {
     if (!this._entities.has(entity.hash())) {
       throw new TypeError(entity.hash() + " isn't being tracked by the manager!");
     }
@@ -142,9 +145,10 @@ class StateManager {
     }
     this.removeEntityFromSubState(this._entities.get(entity.hash()).get('subState'), entity.hash());
 
+    if (removeComponents)
+      entity.removeComponents(false);
     this._entities.delete(entity.hash());
-
-    entity.removeComponents();
+    
     entity.clearManager();
   }
 
@@ -176,6 +180,16 @@ class StateManager {
     if (componentSet.length <= 0) {
       this._entitiesByComponent.delete(componentName);
     }
+  }
+
+  /**
+   * @description - Invalidates the processor's cached list of entities
+   * @param {String} entity - the hash of the entity to invalidate
+   * @param {String} componentName - the name of the component
+   */
+  _invalidateProcessorListsByEntityComponent(entity, componentName) {
+    // this should trigger the listener for the ProcessorManager
+    this._entities.dispatchMapChange(entity, this._entities.get(entity));
   }
 
   /**
@@ -265,7 +279,7 @@ class StateManager {
    * @param {String} name - the name of the substate to be returned
    * @returns {Dict} the dict of hashes to objects containing the entities state
    */
-  getSubState(name) {
+  getSubState(name = 'default') {
     if (!this._subStates.has(name)) {
       throw new TypeError(name + " substate doesn't exist!");
     }
@@ -281,6 +295,92 @@ class StateManager {
     }
 
     return returnDict;
+  }
+
+  /**
+   * @description - Saves the given substate to a regular js Object
+   * @param {String} subState - the substate to serialize
+   * @returns {Object} the state of the given substate
+   */
+  serializeState(subState = 'default') {
+    var entities = this.getSubState(subState);
+    var entitiesList = [];
+    entities.forEach((value, key, dict) => {
+      var entityObject = value.get('object').serialize();
+      entityObject.subState = value.get('subState');
+      entitiesList.push(entityObject);
+    });
+
+    return {
+      'entities': entitiesList
+    };
+  }
+
+  /**
+   * @description - Merges the entities in the stateObject with
+   * the current entities in the given substate. Conflicts favor the 
+   * given stateObject
+   * @param {Object} stateObject - state object most likely returned
+   * from {@link serializeState}
+   * @param {ComponentManager} componentManager - the component manager, 
+   * used for [re]constructing entities
+   * @param {String} subStateName - denotes the substate to merge with
+   */
+  mergeState(stateObject, componentManager, subStateName = 'default') {
+    var entityList = stateObject.entities;
+    var _this = this;
+    entityList.forEach((value, index, array) => {
+      var hash = value.hash;
+      if (_this._entities.has(hash)) {
+        var entityObject = _this._entities.get(hash).get('object');
+        entityObject.deserialize(value, componentManager);
+        //this should erase the old one and replace it with a new one
+        _this.addEntity(entityObject, value.subState);
+      }
+      // create the entity
+      else {
+        var componentList = [];
+        for (var componentKey in value.components) {
+          componentList.push({'name': componentKey, 'args': value.components[componentKey]});
+        }
+
+        _this.addEntity(
+          componentManager.createEntityFromComponents(componentList, hash), 
+          value.subState
+        );
+      }
+    });
+  }
+
+  /**
+   * @description - Clears out the entire state
+   */
+  clear() {
+    for (var entityObject of this._entities.values()) {
+      var entity = entityObject.get('object');
+      this.removeEntity(entity);
+    }
+  }
+
+  /**
+   * @description - clears out all the state for the entities in the given
+   * substate
+   * @param {String} subState - denotes the substate to clear
+   */
+  clearSubState(subState) {
+    if (!this._subStates.has(subState)) {
+      throw new TypeError("Can't clear a non existing substate!");
+    }
+
+    var _this = this,
+      subStateSet = this._subStates.get(subState);
+    this._entities.forEach((value, key, dict) => {
+      if (subStateSet.has(key)) {
+        _this.removeEntity(value.get('object'));
+      }
+    });
+
+    subStateSet.clear();
   }
 }
 

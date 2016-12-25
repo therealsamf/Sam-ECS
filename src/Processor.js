@@ -9,10 +9,7 @@
  */
 
 class Processor {
-  constructor(manager, name) {
-    if (!manager) {
-      throw new TypeError("'manager' must be defined!");
-    }
+  constructor(name, manager) {
 
     var functions = [
       'update', 'getComponentNames'

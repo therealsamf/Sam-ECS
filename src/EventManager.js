@@ -9,8 +9,8 @@
 const EventEmitter = require('events');
 
 class EventManager {
-  constructor(parent) {
-    this._parent = parent;
+  constructor(actionManager) {
+    this._actionManager = actionManager;
     this._emitter = new EventEmitter();
   }
 
@@ -23,6 +23,15 @@ class EventManager {
    */
   addListener(eventType, listener) {
     this._emitter.addListener(eventType, listener);
+  }
+
+  /**
+   * @description - Returns the listeners for the given event type
+   * @param {String} eventType - the type of event
+   * @returns {Array} - the listener functions for the array
+   */
+  getListeners(eventType) {
+    return this._emitter.listeners(eventType);
   }
 
   /**
@@ -44,7 +53,7 @@ class EventManager {
    * event listeners
    */
   emit(eventType, args) {
-    this._emitter.emit(eventType, args, this._parent.getActionManager());
+    this._emitter.emit(eventType, args, this._actionManager);
   }
 }
 

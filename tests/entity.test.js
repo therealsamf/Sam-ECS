@@ -98,3 +98,93 @@ describe("Removing Components from an entity", () => {
     expect(transformComponent.remove).toHaveBeenCalledWith();
   });
 });
+
+describe("Saving and restoring state", () => {
+  var transformComponent,
+    renderComponent,
+    entity;
+
+  beforeEach(() => {
+    entity = new Entity();
+    transformComponent = Object.assign({}, tComponent);
+    renderComponent = Object.assign({}, rComponent);
+  });
+
+  test("State can be saved", () => {
+    entity.addComponent(transformComponent);
+    entity.addComponent(renderComponent);
+
+    expect(entity.serialize()).toEqual({
+      'components': {
+        'Transform': {
+          'x': 0,
+          'y': 0
+        },
+        'Render': {
+          'layer': 0
+        }
+      },
+      'hash': entity.hash()
+    });
+
+  });
+
+  test("State can be restored", () => {
+    const ComponentManager = require('../src/ComponentManager.js');
+    const StateManager = require('../src/StateManager.js');
+    var componentManager = new ComponentManager(new StateManager());
+
+    componentManager.addComponentToLibrary('Transform', (state) => {
+      return {
+        'name': 'Transform',
+        'state': {
+          'x': state.x,
+          'y': state.y
+        }
+      };
+    });
+
+    componentManager.addComponentToLibrary('Render', (state) => {
+      return {
+        'name': 'Render',
+        'state': {
+          'layer': state.layer
+        }
+      };
+    });
+
+    var entity1 = new Entity();
+    entity1.addComponent({
+      'name': 'Transform',
+      'state': {
+        'x': 3,
+        'y': 4
+      }
+    });
+    entity1.addComponent({
+      'name': 'Render',
+      'state': {
+        'layer': 5
+      }
+    });
+
+    var entity2 = new Entity();
+    var object = JSON.parse(JSON.stringify(entity1.serialize()));
+    
+    entity2.deserialize(object, componentManager);
+    expect(entity2.serialize()).toEqual(entity1.serialize());
+    expect(entity2.serialize()).toEqual({
+      'components': {
+        'Transform': {
+          'x': 3,
+          'y': 4
+        },
+        'Render': {
+          'layer': 5
+        }
+      },
+      'hash': entity1.hash()
+    });
+    expect(entity2.hash()).toBe(entity1.hash());
+  });
+});

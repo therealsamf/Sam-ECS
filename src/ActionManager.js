@@ -9,8 +9,7 @@
 const Dict = require('collections/dict.js');
 
 class ActionManager {
-  constructor(parent) {
-    this._parent = parent;
+  constructor() {
 
     this._actionQueues = new Array();
     this._actionQueues.push(new Array());
@@ -66,17 +65,28 @@ class ActionManager {
    * that is passed to reducers
    */
   update(stateManager) {
-    var activeActionQueue = this.actionQueues[this._actionQueueIndex];
+    var activeActionQueue = this._actionQueues[this._actionQueueIndex];
     this._actionQueueIndex += 1;
     this._actionQueueIndex %= this._actionQueues.length;
 
     for (var action of activeActionQueue) {
-      if (this._reducers.has(action.type)) {
-        var reducerArray = this._reducers.get(action.type);
-        for (var reducer of reducerArray) {
-          reducer(action, stateManager);
-        }
+      var reducerArray = this.getReducers(action.type);
+      for (var reducer of reducerArray) {
+        reducer(action, stateManager, this);
       }
+    }
+
+    activeActionQueue.length = 0;
+  }
+
+  /**
+   * @description - Returns the array of reducers associated with
+   * the given action type
+   * @param {String} actionType - the type of action to return the reducers for
+   */
+  getReducers(actionType) {
+    if (this._reducers.has(actionType)) {
+      return this._reducers.get(actionType);
     }
   }
 
@@ -86,10 +96,18 @@ class ActionManager {
    * @param {Object} action - the action to be queued
    */
   dispatch(action) {
-    if (!action.type) {
-      throw new TypeError("Action must have a type!");
+    if (!action || !action.type) {
+      throw new TypeError("Action must be defined and have a type!");
     }
     this._actionQueues[this._actionQueueIndex].push(action);
+  }
+
+  /**
+   * @description - Returns the currently queued actions
+   * @returns {Array} the list of actions currently queued
+   */
+  getQueuedActions() {
+    return this._actionQueues[this._actionQueueIndex];
   }
 
 }

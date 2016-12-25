@@ -38,7 +38,7 @@ class Family {
    * @param {Entity} entity - the entity to test
    */
   testEntity(entity) {
-    return this.testComponentSet(Object.keys(entity.getComponents()));
+    return this.testComponentSet(entity.getComponents().keysArray());
   }
 
   /**

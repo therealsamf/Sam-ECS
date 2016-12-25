@@ -14,13 +14,9 @@ const { Manager } = require(path.resolve(source_path, "Manager.js"));
 
 test("Creation of an empty processor", () => {
   const { Processor } = require(path.resolve(source_path, "Processor.js"));
-  var manager = new Manager();
-  
-  // undefined manager
-  expect(() => { var processor = new Processor(); }).toThrow();
 
   // can't instantiate directly
-  expect(() => { var processor = new Processor(manager); }).toThrow();
+  expect(() => { var processor = new Processor(); }).toThrow();
 
   class RenderProcessor extends Processor {
     update(entities) {
@@ -32,6 +28,6 @@ test("Creation of an empty processor", () => {
     }
   }
 
-  var renderProcessor = new RenderProcessor(manager, RenderProcessor);
+  var renderProcessor = new RenderProcessor('RenderProcessor');
 
 });

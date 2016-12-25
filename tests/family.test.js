@@ -5,12 +5,12 @@
  */
 
 const FastSet = require('collections/fast-set.js');
-const { Manager } = require('../src/Manager.js');
+const StateManager = require('../src/StateManager.js');
 const Family = require('../src/Family.js');
-const { Entity } = require('../src/Entity.js');
+const Entity = require('../src/Entity.js');
 
 describe("A family", () => {
-  var manager = new Manager();
+  var stateManager = new StateManager();
   var family;
   beforeEach(() => {
     family = new Family(['RenderComponent'], ['TransformComponent']);
@@ -28,7 +28,7 @@ describe("A family", () => {
   });
 
   test("Excludes proper entities", () => {
-    var entity1 = new Entity(manager);
+    var entity1 = new Entity(stateManager);
     entity1.addComponent({
       'name': 'TransformComponent',
       'state': {
@@ -46,7 +46,7 @@ describe("A family", () => {
   });
 
   test("Includes proper entites", () => {
-    var entity1 = new Entity(manager);
+    var entity1 = new Entity(stateManager);
     entity1.addComponent({
       'name': 'RenderComponent',
       'state': {
