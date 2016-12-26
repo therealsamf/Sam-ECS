@@ -303,9 +303,12 @@ class StateManager {
    * @returns {Object} the state of the given substate
    */
   serializeState(subState = 'default') {
-    var entities = this.getSubState(subState);
+    return this._serializeState(this.getSubState(subState));
+  }
+
+  _serializeState(stateObject) {
     var entitiesList = [];
-    entities.forEach((value, key, dict) => {
+    stateObject.forEach((value, key, dict) => {
       var entityObject = value.get('object').serialize();
       entityObject.subState = value.get('subState');
       entitiesList.push(entityObject);
@@ -350,6 +353,39 @@ class StateManager {
         );
       }
     });
+  }
+
+  /**
+   * @description - Gets the differing state between
+   * the given substate and the substate denoted by the
+   * string
+   * @param {Dict} subState - the substate to compare against
+   * @param {String} subStateName - denotes the substate within this
+   * manager to compare with
+   * @returns {Dict} the differing state dict
+   */
+  getDeltaState(subState, subStateName = 'default') {
+    var thisSubState = this.getSubState(subStateName);
+
+    var deltaDict = new Dict();
+    thisSubState.forEach((value, key, dict) => {
+      if (!subState.has(key)) {
+        deltaDict.set(key, value);
+      }
+      else {
+        var thisValue = subState.get(key);
+        if (!thisValue.get('object').equals(value.get('object'))) {
+          var entity = value.get('object').clone();
+          deltaDict.set(key, new Dict({
+            'components': entity.getComponents(),
+            'object': entity,
+            'subState': subStateName
+          }));
+        }
+      }
+    });
+
+    return deltaDict;
   }
 
   /**

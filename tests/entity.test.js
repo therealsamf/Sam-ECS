@@ -99,6 +99,72 @@ describe("Removing Components from an entity", () => {
   });
 });
 
+describe("Equality", () => {
+  var entity1,
+    entity2,
+    entity3;
+
+  beforeEach(() => {
+    var t1 = Object.assign({}, tComponent);
+    var t2 = Object.assign({}, tComponent);
+    var t3 = Object.assign({}, tComponent);
+    var r1 = Object.assign({}, rComponent);
+    var r2 = Object.assign({}, rComponent);
+    var r3 = Object.assign({}, rComponent, {'state': {'layer': 4}});
+
+    entity1 = new Entity();
+    entity2 = new Entity();
+    entity3 = new Entity();
+    entity1.addComponent(t1);
+    entity1.addComponent(r1);
+    entity2.addComponent(t2);
+    entity2.addComponent(r2);
+    entity3.addComponent(t3);
+    entity3.addComponent(r3);
+  });
+
+  test("Is correct", () => {
+
+    expect(entity1.equals(entity2)).toBe(true);
+    expect(entity1.equals(entity3)).toBe(false);
+  });
+
+  test("Is Symmetric", () => {
+    expect(entity1.equals(entity2)).toBe(entity2.equals(entity1));
+    expect(entity1.equals(entity3)).toBe(entity3.equals(entity1));
+    expect(entity2.equals(entity3)).toBe(entity3.equals(entity2));
+  });
+});
+
+describe("Cloning entities", () => {
+  var entity1,
+    entity2;
+
+  beforeEach(() => {
+    entity1 = new Entity();
+    entity1.addComponent(tComponent);
+    entity1.addComponent(rComponent);
+
+    entity2 = entity1.clone();
+  });
+
+  test("Clones are equal", () => {
+    expect(entity1.equals(entity2)).toBe(true);
+  });
+
+  test("State changes aren't replicated across the clones", () => {
+    var tState = entity1.getComponent('Transform').get('state');
+    tState.x = 3;
+
+    expect(entity1.equals(entity2)).toBe(false);
+
+  });
+
+  test("Hashes are equal", () => {
+    expect(entity1.hash() === entity2.hash()).toBe(true);
+  });
+});
+
 describe("Saving and restoring state", () => {
   var transformComponent,
     renderComponent,

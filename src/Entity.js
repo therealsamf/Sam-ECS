@@ -170,6 +170,26 @@ class Entity {
       ), false);
     }
   }
+
+  /**
+   * @description - Equality check for entities
+   * @param {Entity} entity - the entity to check equality against
+   * @returns {Boolean} is this equivalent to the other entity
+   */
+  equals(entity) {
+    return this._components.equals(entity.getComponents());
+  }
+
+  /**
+   * @description - Clones this entity
+   * @returns {Entity} the cloned entity
+   */
+  clone() {
+    var returnEntity = new Entity();
+    returnEntity._setHash(this.hash());
+    returnEntity._components = this._components.clone();
+    return returnEntity;
+  }
 }
 
 module.exports = Entity;

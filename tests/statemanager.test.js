@@ -324,3 +324,49 @@ describe("Saving and restoring state", () => {
     expect(stateManager.serializeState()).toEqual(stateManager2.serializeState());
   });
 });
+
+describe("Creating a delta state", () => {
+  var stateManager1,
+    stateManager2,
+    entity1,
+    entity2;
+
+  beforeEach(() => {
+    stateManager1 = new StateManager();
+    stateManager2 = new StateManager();
+
+    entity1 = new Entity(stateManager1),
+    entity2 = new Entity(stateManager2);
+
+    entity2._setHash(entity1.hash());
+    entity1.addComponent(Object.assign({}, tComponent));
+    entity2.addComponent(Object.assign({}, tComponent));
+
+    stateManager1.addEntity(entity1);
+    stateManager2.addEntity(entity2);
+  });
+
+  test("Gets created accurately", () => {
+    expect(entity1.equals(entity2)).toBe(true);
+    
+    var tState = entity1.getComponent('Transform').get('state');
+    tState.x = 5;
+
+    expect(entity1.equals(entity2)).toBe(false);
+    var deltaState = stateManager1.getDeltaState(stateManager2.getSubState());
+    expect(deltaState.keysArray()).toEqual([
+      entity1.hash()
+    ]);
+
+    var state = deltaState.get(entity1.hash()).get('components').get('Transform').get('state');
+    expect(state).toEqual({
+      'x': 5,
+      'y': 0
+    });
+  });
+
+  test("Doesn't include extra not needed entities", () => {
+    var deltaState = stateManager1.getDeltaState(stateManager2.getSubState());
+    expect(deltaState.keysArray().length).toBe(0);
+  });
+});
