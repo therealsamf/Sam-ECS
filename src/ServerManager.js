@@ -31,7 +31,7 @@ class ServerManager extends Manager {
       }
     });
     socket.on('EVENT', (event) => {
-      _this._eventManager.emit(event.type, event);
+      _this._eventManager.emit(event.type, Object.assign(event, {'sid': id}));
     });
     socket.on('ACKNOWLEDGE', (data) => {
       _this._clients[id].lastAcknowledgedState = data.tick;
