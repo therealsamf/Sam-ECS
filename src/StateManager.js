@@ -7,7 +7,8 @@
 
 //node imports
 const Dict = require('collections/dict.js'),
-  ColSet = require('collections/set.js'),
+  // ColSet = require('collections/set.js'),
+  ColSet = Set,
   SortedArray = require('collections/sorted-array.js');
 
 //user imports
