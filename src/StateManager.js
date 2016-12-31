@@ -7,7 +7,7 @@
 
 //node imports
 const Dict = require('collections/dict.js'),
-  Set = require('collections/set.js'),
+  ColSet = require('collections/set.js'),
   SortedArray = require('collections/sorted-array.js');
 
 //user imports
@@ -24,7 +24,7 @@ class StateManager {
     this._entitiesByComponent = new Dict();
 
     this._subStates = new Dict({
-      'default': new Set()
+      'default': new ColSet()
     });
 
     this._stateBuffer = new SortedArray([],
@@ -57,7 +57,7 @@ class StateManager {
    * @returns {Set} set of all the entities hashes
    */
   getEntitySet() {
-    return new Set(this._entities.keys());
+    return new ColSet(this._entities.keys());
   }
 
   /**
@@ -179,7 +179,7 @@ class StateManager {
    */
   _addEntityToComponentList(entityHash, componentName) {
     if (!this.hasComponent(componentName)) {
-      this._entitiesByComponent.set(componentName, new Set());
+      this._entitiesByComponent.set(componentName, new ColSet());
     }
 
     this._entitiesByComponent.get(componentName).add(entityHash);
@@ -222,7 +222,7 @@ class StateManager {
     if (this._subStates.has(name)) {
       throw new TypeError("Attempting to override substate: " + name + "!");
     }
-    this._subStates.set(name, new Set());
+    this._subStates.set(name, new ColSet());
 
     if (entities) {
       this.addEntitiesToSubState(name, entities.toArray());
