@@ -57,7 +57,8 @@ class StateManager {
    * @returns {Set} set of all the entities hashes
    */
   getEntitySet() {
-    return new Set(this._entities.keys());
+    var returnValue = new Set(this._entities.keys());
+    return returnValue;
   }
 
   /**
