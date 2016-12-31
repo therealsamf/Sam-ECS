@@ -6,10 +6,15 @@
  * @author - Sam Faulkner
  */
 
+//node imports
 const Dict = require('collections/dict.js');
+const SortedArray = require('collections/sorted-array.js');
+
+//constants
+const MAXIMUM_BUFFER_LENGTH = 8;
 
 class ActionManager {
-  constructor() {
+  constructor(bufferSize) {
 
     this._actionQueues = new Array();
     this._actionQueues.push(new Array());
@@ -17,6 +22,21 @@ class ActionManager {
     this._actionQueueIndex = 0;
 
     this._reducers = new Dict();
+
+    this._actionBuffer = new SortedArray([], 
+      (first, second) => {
+        return first.tick == second.tick
+      },
+      (first, second) => {
+        return first.tick - second.tick
+      }
+    );
+
+    this._maxBufferSize = bufferSize || MAXIMUM_BUFFER_LENGTH;
+  }
+
+  setMaxBufferSize(value) {
+    this._maxBufferSize = value;
   }
 
   /**
@@ -64,19 +84,96 @@ class ActionManager {
    * @param {StateManager} stateManager - the state manager
    * that is passed to reducers
    */
-  update(stateManager) {
+  update(stateManager, currentTick) {
     var activeActionQueue = this._actionQueues[this._actionQueueIndex];
+
     this._actionQueueIndex += 1;
     this._actionQueueIndex %= this._actionQueues.length;
+    this.bufferActions(activeActionQueue, currentTick);
 
     for (var action of activeActionQueue) {
-      var reducerArray = this.getReducers(action.type);
+      this.dispatchNow(action, stateManager);
+    }
+
+    activeActionQueue.length = 0;
+  }
+
+  /**
+   * @description - Calls the reducers associated with
+   * the given action. Does NOT do any error checking 
+   * if the action is valid
+   * @param {Object} action - the action to be dispatched
+   */
+  dispatchNow(action, stateManager) {
+    var reducerArray = this.getReducers(action.type);
+    if (reducerArray) {
       for (var reducer of reducerArray) {
         reducer(action, stateManager, this);
       }
     }
+  }
 
-    activeActionQueue.length = 0;
+  /**
+   * @description - Reapplies all the actions from the given tick
+   * @param {Number} tick - the tick to re apply the actions from in time
+   * @param {StateManager} stateManager - the stateManager to pass to the reducers
+   */
+  reApplyFrom(tick, stateManager) {
+    var actionBuffer = this.getActionBuffer(tick);
+    if (!actionBuffer) {
+      throw new RangeError("Tick: '" + tick.toString() + "' is out of range!");
+    }
+    while (actionBuffer) {
+      for (var action of actionBuffer) {
+        this.dispatchNow(action, stateManager);
+      }
+      //increase the tick until we get to the newest in the buffer
+      actionBuffer = this.getActionBuffer(++tick);
+    }
+  }
+
+  /**
+   * @description - Takes the given action queue and adds it to the
+   * array of buffered actions
+   * @param {Array} actionQueue - queue of actions to buffer
+   * @param {Number} currentTick - the current tick to store with the
+   * queue to keep track of the actions
+   */
+  bufferActions(actionQueue, currentTick) {
+    while (this._actionBuffer.length >= this._maxBufferSize) {
+      this._actionBuffer.shift();
+    }
+
+    var replicatedActionQueue = [];
+    actionQueue.forEach((value, index, array) => {
+      replicatedActionQueue.push(Object.assign({}, value));
+    });
+
+    this._actionBuffer.push({
+      'tick': currentTick,
+      'actions': replicatedActionQueue
+    });
+  }
+
+  /**
+   * @description - Returns the actions dispatched within the given tick
+   * @param {Number} tick - the tick to retrieve the actions from
+   * @returns {Array} the buffered action array
+   */
+  getActionBuffer(tick) {
+    for (var buffer of this._actionBuffer.toArray()) {
+      if (buffer.tick == tick) {
+        return buffer.actions;
+      }
+    }
+  }
+
+  /**
+   * @description - Returns the entire array of action buffers
+   * @returns {Array} the entire buffer of action arrays
+   */
+  _getActionBuffer() {
+    return this._actionBuffer;
   }
 
   /**

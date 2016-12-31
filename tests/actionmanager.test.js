@@ -141,3 +141,149 @@ describe("Actions", () => {
     expect(actionManager.getQueuedActions().length).toBe(0);
   });
 });
+
+describe("Buffering actions", () => {
+  var actionManager;
+
+  beforeEach(() => {
+    actionManager = new ActionManager();
+  });
+
+  test("Buffers for the window", () => {
+    var currentTick = 0;
+    while(currentTick < 8) {
+      actionManager.update(undefined, currentTick);
+      currentTick++;
+    }
+
+    expect(actionManager._getActionBuffer().length).toBe(8);
+  });
+
+  test("Doesn't buffer for more than the window", () => {
+    var currentTick = 0;
+    while (currentTick < 10) {
+      actionManager.update(undefined, currentTick);
+      currentTick++;
+    }
+
+    expect(actionManager._getActionBuffer().length).toBe(8);
+  });
+
+  test("Buffers the actions in the correct order/way", () => {
+    var currentTick = 0;
+    actionManager.dispatch({
+      'type': 'MOVE',
+      'x': 0,
+      'y': 1
+    });
+    actionManager.dispatch({
+      'type': 'MOVE',
+      'x': 0,
+      'y': 2
+    });
+
+    actionManager.update(undefined, currentTick++);
+    actionManager.dispatch({
+      'type': 'MOVE',
+      'x': 0,
+      'y': 3
+    });
+    actionManager.update(undefined, currentTick++);
+
+    var firstBuffer = actionManager.getActionBuffer(0);
+    var secondBuffer = actionManager.getActionBuffer(1);
+    expect(firstBuffer.length).toBe(2);
+    expect(secondBuffer.length).toBe(1);
+    
+    expect(firstBuffer[0]).toEqual({
+      'type': 'MOVE',
+      'x': 0,
+      'y': 1
+    });
+    expect(firstBuffer[1]).toEqual({
+      'type': 'MOVE',
+      'x': 0,
+      'y': 2
+    });
+    expect(secondBuffer[0]).toEqual({
+      'type': 'MOVE',
+      'x': 0,
+      'y': 3
+    });
+
+  });
+});
+
+describe("Reapplying actions", () => {
+  var actionManager,
+    stateManager,
+    currentTick,
+    updateFunction,
+    testFun1,
+    testFun2;
+
+  function moveReducer(action, stateManager) {
+    testFun1(action);
+  }
+
+  function relayerReducer(action, stateManager) {
+    testFun2(action);
+  }
+
+  beforeEach(() => {
+    actionManager= new ActionManager();
+    const StateManager = require('../src/StateManager.js');
+    stateManager = new StateManager();
+    actionManager.addReducer(moveReducer, ['MOVE']);
+    actionManager.addReducer(relayerReducer, ['RELAYER']);
+
+    currentTick = 0;
+    updateFunction = () => {
+      actionManager.update(stateManager, currentTick);
+      stateManager.update(currentTick);
+      currentTick++;
+    };
+
+    testFun1 = jest.fn();
+    testFun2 = jest.fn();
+  });
+  test("All actions get re-applied", () => {
+    actionManager.dispatch({
+      'type': 'MOVE',
+      'x': 1,
+      'y': 1
+    });
+    updateFunction();
+    expect(testFun1).toHaveBeenCalledTimes(1);
+    actionManager.dispatch({
+      'type': 'RELAYER',
+      'layer': 4
+    });
+    updateFunction();
+    expect(testFun2).toHaveBeenCalledTimes(1);
+
+    actionManager.reApplyFrom(0, stateManager);
+    expect(testFun1).toHaveBeenCalledTimes(2);
+    expect(testFun2).toHaveBeenCalledTimes(2);
+  });
+
+  test("Actions not included in the buffer don't get reapplied", () => {
+    actionManager.dispatch({
+      'type': 'MOVE',
+      'x': 1,
+      'y': 1
+    });
+    updateFunction();
+    expect(testFun1).toHaveBeenCalledTimes(1);
+    actionManager.dispatch({
+      'type': 'RELAYER',
+      'layer': 4
+    });
+    updateFunction();
+    expect(testFun2).toHaveBeenCalledTimes(1);
+
+    actionManager.reApplyFrom(1, stateManager);
+    expect(testFun1).toHaveBeenCalledTimes(1);
+    expect(testFun2).toHaveBeenCalledTimes(2);
+  });
+});

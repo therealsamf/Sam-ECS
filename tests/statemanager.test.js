@@ -370,3 +370,164 @@ describe("Creating a delta state", () => {
     expect(deltaState.keysArray().length).toBe(0);
   });
 });
+
+describe("Buffering state", () => {
+  var stateManager;
+
+  beforeEach(() => {
+    stateManager = new StateManager();
+  });
+
+  test("Buffers for the entire window", () => {
+    for (var i = 0; i < 8; i++) {
+      stateManager.update(i);
+    }
+
+    expect(stateManager.getStateBuffer().length).toBe(8);
+  });
+
+  test("Doesn't overflow the window", () => {
+    for (var i = 0; i < 10; i++) {
+      stateManager.update(i);
+    }
+
+    expect(stateManager.getStateBuffer().length).toBe(8);
+  });
+
+  test("Accessing buffers outside the window throws an error", () => {
+    expect(() => { stateManager.restoreState(0); }).toThrow();
+    stateManager.update(0);
+    stateManager.update(1);
+    expect(() => { stateManager.restoreState(0); }).not.toThrow();
+    expect(() => { stateManager.restoreState(2); }).toThrow();
+  });
+});
+
+describe("Buffered states", () => {
+  const ActionManager = require('../src/ActionManager.js');
+  var actionManager,
+    stateManager,
+    currentTick,
+    entity,
+    updateFunction;
+
+  function moveReducer(action, stateManager, actionManager) {
+    var transform = stateManager.getEntityComponent(action.entity, 'Transform');
+    transform.x = action.x;
+    transform.y = action.y;
+  }
+
+  beforeEach(() => {
+    actionManager = new ActionManager();
+    actionManager.addReducer(moveReducer, ['MOVE']);
+    stateManager = new StateManager();
+    entity = new Entity();
+    entity.addComponent({
+      'name': 'Transform',
+      'state': {
+        'x': 0,
+        'y': 0
+      }
+    });
+
+    stateManager.addEntity(entity);
+    currentTick = 0;
+    updateFunction = () => {
+      actionManager.update(stateManager, currentTick);
+      stateManager.update(currentTick);
+      currentTick++;
+    }
+  });
+
+  test("Buffered states get cloned properly", () => {
+    updateFunction();
+    var bufferedState = stateManager.getBufferedState(0),
+      clonedEntity = bufferedState.state.get(entity.hash()).get('object');
+    expect(clonedEntity).toBeDefined();
+    expect(clonedEntity.equals(entity)).toBe(true);
+
+    
+    actionManager.dispatch({
+      'type': 'MOVE',
+      'entity': entity.hash(),
+      'x': 1,
+      'y': 1
+    });
+    updateFunction();
+    expect(clonedEntity.equals(entity)).toBe(false);
+    expect(clonedEntity.getComponent('Transform').get('state')).toEqual({
+      'x': 0,
+      'y': 0
+    });
+  });
+
+  test("State restorations from buffer work properly", () => {
+    updateFunction();
+    actionManager.dispatch({
+      'type': 'MOVE',
+      'entity': entity.hash(),
+      'x': 1,
+      'y': 0
+    });
+    updateFunction();
+    var bufferedState = stateManager.getBufferedState(0).state;
+    expect(bufferedState.equals(stateManager.getBufferedState(1).state)).toBe(false);
+    stateManager.restoreState(0);
+
+    var oldEntity = stateManager.getEntity(entity.hash());
+    expect(oldEntity.getComponent('Transform').get('state')).toEqual({
+      'x': 0,
+      'y': 0
+    });
+    expect(stateManager.getEntityComponent(entity.hash(), 'Transform')).toEqual({
+      'x': 0,
+      'y': 0
+    });
+  });
+});
+
+describe("Serialized state equality", () => {
+  var stateManager1,
+    stateManager2,
+    entity1,
+    entity2;
+
+  beforeEach(() => {
+    stateManager1 = new StateManager();
+    stateManager2 = new StateManager();
+
+    entity1 = new Entity(stateManager1),
+    entity2 = new Entity(stateManager2);
+
+    entity2._setHash(entity1.hash());
+    entity1.addComponent(Object.assign({}, tComponent));
+    entity2.addComponent(Object.assign({}, tComponent));
+
+    stateManager1.addEntity(entity1);
+    stateManager2.addEntity(entity2);
+  });
+
+  test("Works with equal states", () => {
+    var serializedStateA = stateManager1.serializeState();
+    var serializedStateB = stateManager2.serializeState();
+    expect(stateManager1.serializedStateEquality(serializedStateA, serializedStateB)).toBe(true);
+  });
+
+  test("Works with unequal states", () => {
+    var serializedStateA = stateManager1.serializeState();
+    var tState = entity2.getComponent('Transform').get('state');
+
+    tState.x = 4;
+
+    var serializedStateB = stateManager2.serializeState();
+
+    expect(stateManager1.serializedStateEquality(serializedStateA, serializedStateB)).toBe(false);
+  });
+
+  test("Is symmetric", () => {
+    var serializedStateA = stateManager1.serializeState();
+    var serializedStateB = stateManager2.serializeState();
+    expect(stateManager1.serializedStateEquality(serializedStateA, serializedStateB))
+      .toBe(stateManager1.serializedStateEquality(serializedStateB, serializedStateA));
+  });
+})

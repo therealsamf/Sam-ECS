@@ -29,18 +29,12 @@ class Manager {
     this._eventManager = new EventManager(this._actionManager);
     this._processorManager = new ProcessorManager(this._stateManager);    
 
-    this._user = undefined;
-
-    this._stateCounter = 0;
-    this._stateQueue = [];
+    this._currentTick = 0;
   }
 
-  setUser(value) {
-    this._user = value;
-  }
-
-  getUser() {
-    return this._user;
+  setMaxBufferSize(value) {
+    this._stateManager.setMaxBufferSize(value);
+    this._actionManager.setMaxBufferSize(value);
   }
 
   getStateManager() {
@@ -166,77 +160,6 @@ class Manager {
 
     if (this._dispatchFun)
       this._dispatchFun(action, unrolling);
-
-    if (!unrolling)
-      this._stateQueue.push({
-        'number': this._stateCounter,
-        'state': this.toJSON(),
-        'action': action,
-        'revert': action.revert
-      });
-  }
-
-  /**
-   * @description - Rolls the state of the manager back. Throws away any state
-   * staler than the 'number'
-   * @param {Number} number - number indicating how stale the state is
-   * @param {Object} state - the state object to rollback to
-   */
-  rollback(number, state) {
-    if (number > this._stateCounter) {
-      this._stateCounter = number;
-    }
-
-    var currentNumber = Number.MIN_SAFE_VALUE;
-    var index = 0,
-      oldState = this.toJSON();
-    while (currentNumber < number && index < this._stateQueue.length) {
-      oldState = this._stateQueue[index].state;
-      currentNumber = this._stateQueue[index++].number;
-    }
-
-    this._stateQueue.splice(0, index + 1);
-
-    this.clear();
-    this.fromJSON(oldState);
-    this.fromJSON(state);
-  }
-
-  /**
-   * @description - Rolls back the state of the manager by reverting actions, 
-   * instead of replacing the current state
-   * @param {Number} - the number indicating at what state to roll back to
-   */
-  rollback_actions(number) {
-    if (number > this._stateCounter) {
-      this._stateCounter = number;
-    }
-
-    var index = this._stateQueue.length - 1;
-    if (index < 0) {
-      return
-    }
-
-    var currentNumber = this._stateQueue[index].number;
-    while (currentNumber > number && index >= 0) {
-      currentNumber = this._stateQueue[index].number;
-      if (currentNumber != number)  {
-        this._stateQueue[index].revert();
-        index--;
-      }
-    }
-
-    this._stateQueue.splice(0, index + 1);
-  }
-
-  /**
-   * @description - Takes the entire state queue and re applies all of the states
-   * This typically would happen after a rollback
-   */
-  unroll() {
-    for (var action of this._stateQueue) {
-      this.dispatch(action.action, true);
-    }
   }
 
   /**
@@ -263,7 +186,8 @@ class Manager {
    */
   update() {
     this._processorManager.update();
-    this._actionManager.update(this._stateManager);
+    this._actionManager.update(this._stateManager, this._currentTick);
+    this._stateManager.update(this._currentTick);
   }
 
   /**
@@ -308,46 +232,12 @@ class Manager {
    * for the supplied event type or not
    */
   emit(eventType, arg) {
+    if (this._emitFun) {
+      this._emitFun(Object.assign({}, arg, {'type': eventType}));
+    }
+
     this._eventManager.emit(eventType, arg);
   }
-
-  /**
-   * @description - Serializes the entire state of the manager out to a 
-   * javascript object
-   * @return {Object} - the state of the ECS manager
-   */
-  // toJSON() {
-  //   var entities = new Array();
-  //   for (var entityHash in this._entitiesByHash) {
-  //     var entity = this._entitiesByHash[entityHash];
-  //     entities.push(entity._toJSON());
-  //   }
-  //   return {
-  //     'entities': entities
-  //   }
-  // }
-
-  /**
-   * @description - Takes the object produced from 'toJSON' and
-   * restores the entire state of the manager
-   * @param {Object} obj - the serialized state of the manager
-   */
-  // fromJSON(obj) {
-  //   for (var entityObj of obj.entities) {
-  //     var hashValue = entityObj.hash;
-  //     var componentObject = entityObj.components;
-  //     var componentList = new Array();
-  //     for (var componentName in componentObject) {
-  //       var componentState = componentObject[componentName];
-  //       componentList.push({
-  //         'name': componentName,
-  //         'args': componentState,
-  //       });
-  //     }
-
-  //     this.addEntityFromComponents(componentList, hashValue);
-  //   }
-  // }
 
   /**
    * @description - Adds a component to the manager, allowing entities
@@ -381,10 +271,10 @@ class Manager {
    * @param {String} hashValue - optional paramter for a hashvalue to be
    * assigned to the entity rather than one being generated
    */
-  addEntityFromComponents(componentList, hashValue) {
+  addEntityFromComponents(componentList, hashValue, subState) {
     var entity = this._componentManager.createEntityFromComponents(componentList, hashValue);
 
-    return this._stateManager.addEntity(entity);
+    return this._stateManager.addEntity(entity, subState);
   }
 
   /**
@@ -430,6 +320,16 @@ class Manager {
    */
   clear() {
     return this._stateManager.clear();
+  }
+
+  /**
+   * @description - Serializes the current state from the state 
+   * @param {String} subState - the substate to serialize
+   * manager and returns it
+   * @returns {Object} the state object
+   */
+  serializeState(subState) {
+    return this._stateManager.serializeState(subState);
   }
 }
 

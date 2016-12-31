@@ -1,704 +1,529 @@
 //server-client.test.js//
 
 /**
- * @description - Tests functionalities for a server client
- * architecture
+ * @description - Tests relationship between
+ * server and client
  * @author - Sam Faulkner
  */
 
-const { Manager } = require('../src/Manager.js');
+//node imports
+const Emitter = require('events');
 
-function applyComponentGenerators(manager) {
-  manager.addComponentToLibrary('Render', 
-    (argObject, manager) => {
-      return {
-        'name': 'Render',
-        'state': {
-          'layer': argObject.layer
+//user imports
+const ClientManager = require('../src/ClientManager.js');
+const ServerManager = require('../src/ServerManager.js');
+
+describe("Client Manager", () => {
+  var clientManager,
+    socket,
+    testFun;
+
+  beforeEach(() => {
+    socket = new Emitter();
+    clientManager = new ClientManager(socket);
+
+    testFun = jest.fn();
+    socket.addListener('EVENT', (event) => {
+      testFun(event);
+    });
+  });
+
+  test("Sends events in the right order", () => {
+    
+    expect(testFun).toHaveBeenCalledTimes(0);
+    clientManager.emit('CLICK', {'entity': 'testEntity1'});
+    expect(testFun).toHaveBeenCalledTimes(1);
+    expect(testFun).toHaveBeenLastCalledWith({
+      'type': 'CLICK',
+      'tick': 0,
+      'entity': 'testEntity1'
+    });
+
+    //this shouldn't emit the event yet because we haven't received state for the last event
+    clientManager.emit('CLICK', {'entity': 'testEntity2'});
+    expect(testFun).toHaveBeenCalledTimes(1);
+
+  });
+
+  test("Buffers events until state has been acknowledged", () => {
+    clientManager.emit('CLICK', {'entity': 'testEntity1'});
+    expect(clientManager.getQueuedEvents().length).toBe(0);
+    
+    clientManager.emit('CLICK', {'entity': 'testEntity2'});
+    expect(clientManager.getQueuedEvents().length).toBe(1);
+    
+    clientManager.emit('CLICK', {'entity': 'testEntity3'});
+    expect(clientManager.getQueuedEvents().length).toBe(2);
+
+    clientManager.emit('CLICK', {'entity': 'testEntity4'});
+    expect(clientManager.getQueuedEvents().length).toBe(3);
+  });
+});
+
+describe("Client manager receiving state", () => {
+  var clientManager,
+    socket,
+    testFun,
+    entityHash = 'testEntity';
+
+  function moveReducer(action, stateManager) {
+    var componentState = stateManager.getEntityComponent(action.entity, 'Transform');
+    componentState.x = action.x;
+    componentState.y = action.y;
+  }
+
+  function transformGenerator(state) {
+    return {
+      'name': 'Transform',
+      'state': {
+        'x': state.x,
+        'y': state.y
+      }
+    };
+  }
+
+  beforeEach(() => {
+    socket = new Emitter();
+    clientManager = new ClientManager(socket);
+    
+    testFun = jest.fn();
+    socket.addListener('EVENT', (event) => {
+      testFun(event)
+    });
+
+    clientManager.addComponentToLibrary('Transform', transformGenerator);
+    clientManager.addEntityFromComponents([
+      {
+        'name': 'Transform',
+        'args': {
+          'x': 1,
+          'y': 2
         }
       }
+    ], entityHash);
+    clientManager.addReducer(moveReducer, ['MOVE']);
+
+  });
+
+  test("Receiving state works", () => {
+    var stateObject = {
+      'tick': 0,
+      'state': clientManager.serializeState()
+    };
+
+    clientManager.emit('CLICK', 
+      {
+        'entity': 'testEntity1'
+      }
+    );
+
+    expect(testFun).toHaveBeenCalledTimes(1);
+    clientManager.update();
+
+    clientManager.emit('CLICK',
+      {
+        'entity': 'testEntity2'
+      }
+    );
+
+    expect(testFun).toHaveBeenCalledTimes(1);
+    clientManager.dispatch({
+      'type': 'MOVE',
+      'entity': entityHash,
+      'x': 4,
+      'y': 5
+    });
+
+    clientManager.update();
+    expect(clientManager.serializeState()).toEqual({
+      'entities': [
+        {
+          'hash': entityHash,
+          'components': {
+            'Transform': {
+              'x': 4,
+              'y': 5
+            }
+          },
+          'subState': 'default'
+        }
+      ]
+    });
+
+    clientManager.receiveState(stateObject);
+    //make sure state is unchanged
+    expect(clientManager.serializeState()).toEqual({
+      'entities': [
+        {
+          'hash': entityHash,
+          'components': {
+            'Transform': {
+              'x': 4,
+              'y': 5
+            }
+          },
+          'subState': 'default'
+        }
+      ]
+    });
+
+    //sent the other queued event
+    expect(testFun).toHaveBeenCalledTimes(2);
+  });
+
+  test("Reapplying actions and prediction work as expected", () => {
+
+    var stateObject0 = {
+      'tick': 0,
+      'state': clientManager.serializeState()
+    };
+    clientManager.dispatch({
+      'type': 'MOVE',
+      'entity': entityHash,
+      'x': 3,
+      'y': 4
+    });
+    clientManager.update();
+
+    var stateObject1 = {
+      'tick': 1,
+      'state': clientManager.serializeState()
+    };
+
+    clientManager.dispatch({
+      'type': 'MOVE',
+      'entity': entityHash,
+      'x': 5,
+      'y': 6
+    });
+    clientManager.update();
+
+    var stateObject2 = {
+      'tick': 2,
+      'state': clientManager.serializeState()
     }
-  );
-  manager.addComponentToLibrary('Transform',
-    (argObject, manager) => {
+
+    clientManager.receiveState(stateObject0);
+    expect(clientManager.serializeState()).toEqual({
+      'entities': [
+        {
+          'hash': entityHash,
+          'components': {
+            'Transform': {
+              'x': 5,
+              'y': 6
+            }
+          },
+          'subState': 'default'
+        }
+      ]
+    });
+      
+    clientManager.receiveState(stateObject1);
+    expect(clientManager.serializeState()).toEqual({
+      'entities': [
+        {
+          'hash': entityHash,
+          'components': {
+            'Transform': {
+              'x': 5,
+              'y': 6
+            }
+          },
+          'subState': 'default'
+        }
+      ]
+    });
+
+    clientManager.receiveState(stateObject2);
+    expect(clientManager.serializeState()).toEqual({
+      'entities': [
+        {
+          'hash': entityHash,
+          'components': {
+            'Transform': {
+              'x': 5,
+              'y': 6
+            }
+          },
+          'subState': 'default'
+        }
+      ]
+    });
+
+  });
+});
+
+describe("Server Manager", () => {
+
+  var clientManager,
+    serverManager,
+    clientSocket,
+    clientID = 'clientID';
+
+  beforeEach(() => {
+    clientSocket = new Emitter();
+    clientManager = new ClientManager(clientSocket);
+    serverManager = new ServerManager();
+  });
+
+  test("Can add clients", () => {
+    var testFun1 = jest.fn();
+    var testFun2 = jest.fn();
+    clientSocket.on('CONNECTION', () => {
+      testFun1();
+    });
+    clientSocket.on('BUFFER', (num) => {
+      testFun2(num);
+    });
+
+    serverManager.addClient(clientID, clientSocket);
+    expect(serverManager.getClient(clientID)).toBeDefined();
+    expect(testFun1).toHaveBeenCalledTimes(1);
+    expect(testFun2).toHaveBeenCalledTimes(1);
+    expect(testFun2).toHaveBeenLastCalledWith(8);
+  });
+
+  test("Sends updates to clients when buffer size is about to be exceeded", () => {
+    var testFun = jest.fn();
+
+    clientSocket.on('UPDATE', (stateObject) => {
+      testFun(stateObject);
+    });
+
+    serverManager.addClient(clientID, clientSocket);
+    for (var i = 0; i < 10; i++) {
+      serverManager.update();
+    }
+
+    // we exceed the buffer size of 8, so it should be called once
+    expect(testFun).toHaveBeenCalledTimes(2);
+  });
+
+  test("Sends updates to clients when the state has changed", () => {
+    function transformGenerator(state) {
       return {
         'name': 'Transform',
         'state': {
-          'x': argObject.x,
-          'y': argObject.y
+          'x': state.x,
+          'y': state.y
         }
-      }
+      };
     }
-  );
-}
 
-var renderComponent = {
-  'name': 'Render',
-  'args': {
-    'layer': 1
-  }
-};
-
-var transformComponent = {
-  'name': 'Transform',
-  'args': {
-    'x': 0,
-    'y': 0
-  }
-}
-
-function moveReducer(action, manager) {
-  var transformState = manager.getEntityState(action.entity).Transform.state;
-  transformState.x = action.x;
-  transformState.y = action.y;
-}
-
-function relayerReducer(action, manager) {
-  var renderState = manager.getEntityState(action.entity).Render.state;
-  renderState.layer = action.layer;
-}
-
-function addEntityReducer(action, manager) {
-  manager.addEntityFromComponents([
-    {
-      'name': 'Render',
-      'args': {
-        'layer': 4
-      }
-    },
-    {
-      'name': 'Transform',
-      'args': {
-        'x': 3,
-        'y': 4
-      }
+    function moveReducer(action, stateManager) {
+      var componentState = stateManager.getEntityComponent(action.entity, 'Transform');
+      componentState.x = action.x;
+      componentState.y = action.y;
     }
-  ]);
-}
 
-describe("Rolling back", () => {
-  var manager1,
-    manager2,
-    entity;
+    serverManager.addComponentToLibrary('Transform', transformGenerator);
+    serverManager.addReducer(moveReducer, ['MOVE']);
+    clientManager.addComponentToLibrary('Transform', transformGenerator);
+    clientManager.addReducer(moveReducer, ['MOVE']);
 
-  beforeEach(() => {
-    manager1 = new Manager();
-    manager2 = new Manager();
+    serverManager.addClient(clientID, clientSocket);
 
-    applyComponentGenerators(manager1);
-    applyComponentGenerators(manager2);
+    var testFun = jest.fn();
 
-    entity = manager1.addEntityFromComponents([
-      renderComponent,
-      transformComponent
-    ]);
-
-    manager2.addEntityFromComponents([
-      renderComponent,
-      transformComponent
-    ], entity);
-
-    manager1.addReducer(moveReducer, ['MOVE']);
-    manager1.addReducer(relayerReducer, ['RELAYER']);
-    manager2.addReducer(moveReducer, ['MOVE']);
-    manager2.addReducer(relayerReducer, ['RELAYER']);
-
-  });
-
-  test("Properly updates the _stateQueue", () => {
-    manager1.dispatch({
-      'type': 'MOVE',
-      'entity': entity,
-      'x': 0,
-      'y': 1
+    clientSocket.on('UPDATE', (stateObject) => {
+      testFun(stateObject);
     });
 
-    expect(manager1._stateQueue.length).toBe(1);
-    expect(manager1._stateCounter).toBe(1);
+    var entityHash = 'entityHash';
+    serverManager.addEntityFromComponents([
+      {
+        'name': 'Transform',
+        'args': {
+          'x': 0,
+          'y': 0
+        } 
+      }
+    ], entityHash);
 
-    manager2.dispatch({
+    serverManager.update();
+    //should have sent out an immediate update
+    expect(testFun).toHaveBeenCalledTimes(1);
+
+    serverManager.dispatch({
       'type': 'MOVE',
-      'entity': entity,
+      'entity': entityHash,
       'x': 1,
-      'y': 1
-    });
-
-    var manager2State = manager2.toJSON();
-    var manager2Number = manager2._stateCounter;
-
-    manager1.rollback(manager2Number, manager2State);
-    expect(manager1._stateQueue.length).toBe(0);
-    expect(manager1.toJSON()).toEqual(manager2.toJSON());
-
-  });
-
-  test("Overwrites newer updates", () => {
-
-    manager1.dispatch({
-      'type': 'MOVE',
-      'entity': entity,
-      'x': 0,
-      'y': 1
-    });
-
-    manager1.dispatch({
-      'type': 'RELAYER',
-      'entity': entity,
-      'layer': 3
-    });
-
-    manager2.dispatch({
-      'type': 'RELAYER',
-      'entity': entity,
-      'layer': 4
-    });
-
-    var manager2State = manager2.toJSON();
-    var manager2Number = manager2._stateCounter;
-
-    manager1.rollback(manager2Number, manager2State);
-    expect(manager1._stateQueue.length).toBe(1);
-    expect(manager1.toJSON()).toEqual(manager2.toJSON());
-  });
-
-  test("Properly sets the state counter to the newer value", () => {
-    manager1.dispatch({
-      'type': 'MOVE',
-      'entity': entity,
-      'x': 0,
-      'y': 1
-    });
-
-    manager1.dispatch({
-      'type': 'RELAYER',
-      'entity': entity,
-      'layer': 3
-    });
-
-    manager2.dispatch({
-      'type': 'RELAYER',
-      'entity': entity,
-      'layer': 4
-    });
-
-    expect(manager1._stateCounter).toBe(2);
-    var manager1State = manager1.toJSON();
-    var manager1Number = manager1._stateCounter;
-
-    manager2.rollback(manager1Number, manager1State);
-    expect(manager2._stateQueue.length).toBe(0);
-    expect(manager2.toJSON()).toEqual(manager1.toJSON());
-    
-    expect(manager2._stateCounter).toBe(2);
-
-  });
-});
-
-describe("Unrolling", () => {
-  var manager1,
-    manager2,
-    entity;
-
-  beforeEach(() => {
-    manager1 = new Manager();
-    manager2 = new Manager();
-
-    applyComponentGenerators(manager1);
-    applyComponentGenerators(manager2);
-
-    entity = manager1.addEntityFromComponents([
-      renderComponent,
-      transformComponent
-    ]);
-
-    manager2.addEntityFromComponents([
-      renderComponent,
-      transformComponent
-    ], entity);
-
-    manager1.addReducer(moveReducer, ['MOVE']);
-    manager1.addReducer(relayerReducer, ['RELAYER']);
-    manager2.addReducer(moveReducer, ['MOVE']);
-    manager2.addReducer(relayerReducer, ['RELAYER']);
-
-  });
-
-  test("Reapplied state is equal to current state", () => {
-    
-    manager1.dispatch({
-      'type': 'MOVE',
-      'x': 0,
-      'y': 1,
-      'entity': entity
-    });
-    var state = manager1.toJSON();
-
-    manager1.dispatch({
-      'type': 'RELAYER',
-      'layer': 3,
-      'entity': entity
-    });
-    manager1.dispatch({
-      'type': 'MOVE',
-      'x': 4,
-      'y': 5,
-      'entity': entity
-    });
-
-    var newState = manager1.toJSON();
-    manager1.rollback(1, state);            
-    expect(manager1._stateQueue.length).toBe(2);
-    expect(manager1.toJSON()).toEqual(state);
-    manager1.unroll();
-    expect(manager1.toJSON()).toEqual(newState);
-  });
-
-  test("Actions are reapplied properly", () => {
-    manager1.dispatch({
-      'type': 'MOVE',
-      'x': 0,
-      'y': 1,
-      'entity': entity
-    });
-
-    manager1.dispatch({
-      'type': 'RELAYER',
-      'layer': 3,
-      'entity': entity
-    });
-    manager2.dispatch({
-      'type': 'MOVE',
-      'x': 4,
-      'y': 5,
-      'entity': entity
-    });
-
-    manager1.rollback(manager2._stateCounter, manager2.toJSON());
-    manager1.unroll();
-    expect(manager1.toJSON()).toEqual({
-      'entities': [
-        {
-          'components': {
-            'Transform': {            
-              'x': 4,
-              'y': 5
-            },
-            'Render': {
-              'layer': 3
-            }
-          },
-          'hash': entity
-        }
-      ]
-    });
-  });
-
-});
-
-describe("Multiple clients and server", () => {
-
-  var client1,
-    client2,
-    server,
-    entity;
-
-  beforeEach(() => {
-    client1 = new Manager();
-    client2 = new Manager();
-    server = new Manager();
-
-    applyComponentGenerators(client1);
-    applyComponentGenerators(client2);
-    applyComponentGenerators(server);
-
-    entity = client1.addEntityFromComponents([
-      renderComponent,
-      transformComponent
-    ]);
-
-    client2.addEntityFromComponents([
-      renderComponent,
-      transformComponent
-    ], entity);
-
-    server.addEntityFromComponents([
-      renderComponent,
-      transformComponent
-    ], entity);
-
-    client1.addReducer(moveReducer, ['MOVE']);
-    client1.addReducer(relayerReducer, ['RELAYER']);
-    client2.addReducer(moveReducer, ['MOVE']);
-    client2.addReducer(relayerReducer, ['RELAYER']);
-    server.addReducer(moveReducer, ['MOVE']);
-    server.addReducer(relayerReducer, ['RELAYER']);
-
-  });
-
-  test("Syncing state across clients", () => {
-    server.addDispatchSideEffect((action) => {
-      client1.rollback(server._stateCounter, server.toJSON());
-      client2.rollback(server._stateCounter, server.toJSON());
-      client1.unroll();
-      client2.unroll();
-    });
-
-    client1.addDispatchSideEffect((action, unrolling) => {
-      if (!unrolling) {
-        server.dispatch(action);
-      }
-    });
-
-    client2.addDispatchSideEffect((action, unrolling) => {
-      if (!unrolling) {
-        server.dispatch(action);
-      }
-    });
-
-    client1.dispatch({
-      'type': 'MOVE',
-      'entity': entity,
-      'x': 2,
       'y': 2
     });
-
-    client1.dispatch({
-      'type': 'MOVE',
-      'entity': entity,
-      'x': 2,
-      'y': 3
-    });
-
-    expect(client1._stateCounter).toBe(client2._stateCounter);
-
-    expect(client2.toJSON()).toEqual({
-      'entities': [
-        {
-          'hash': entity,
-          'components': {
-            'Transform': {
-              'x': 2,
-              'y': 3
-            },
-            'Render': {
-              'layer': 1
-            }
-          }
-        }
-      ]
-    });
-  });
-
-  test("Unrolling between clients", () => {
-    jest.useFakeTimers();
-    server.addDispatchSideEffect((action) => {
-      client1.rollback(server._stateCounter, server.toJSON());
-      client2.rollback(server._stateCounter, server.toJSON());
-      client1.unroll();
-      client2.unroll();
-    });
-
-    client2.addDispatchSideEffect((action, unrolling) => {
-      if (!unrolling) {
-        server.dispatch(action);
-      }
-    });
-
-    var action1 = {
-      'type': 'MOVE',
-      'x': 2,
-      'y': 2,
-      'entity': entity
-    };
-    var action2 = {
-      'type': 'RELAYER',
-      'layer': 4,
-      'entity': entity
-    };
-
-    client1.dispatch(action1);
-    client1.dispatch(action2);
-    server.dispatch(action1);
-
-
-
-    expect(client1._stateCounter).toBeGreaterThan(client2._stateCounter);
-    expect(client1.toJSON()).toEqual({
-      'entities': [
-        {
-          'hash': entity,
-          'components': {
-            'Transform': {
-              'x': 2,
-              'y': 2
-            },
-            'Render': {
-              'layer': 4
-            }
-          }
-        }
-      ]
-    });
-    expect(client2.toJSON()).toEqual({
-      'entities': [
-        {
-          'hash': entity,
-          'components': {
-            'Transform': {
-              'x': 2,
-              'y': 2
-            },
-            'Render': {
-              'layer': 1
-            }
-          }
-        }
-      ]
-    });
-
-
-    server.dispatch(action2);
-    expect(client2.toJSON()).toEqual(client1.toJSON());
-
+    serverManager.update();
+    //state has changed, so should have sent out another update
+    expect(testFun).toHaveBeenCalledTimes(2);
   });
 });
 
-function getTransformState (entity, manager) {
-  return manager.getEntityState(entity).Transform.state;
-}
+describe("Both managers", () => {
+  var clientManager1,
+    clientManager2,
+    clientSocket1,
+    clientSocket2,
+    clientID1 = 'clientID1',
+    clientID2 = 'clientID2',
+    serverManager,
+    entityHash = 'entityHash',
+    updateFunction;
 
-function getRenderState (entity, manager) {
-  return manager.getEntityState(entity).Render.state;
-}
+  function moveReducer(action, stateManager) {
+    var componentState = stateManager.getEntityComponent(action.entity, 'Transform');
+    componentState.x = action.x;
+    componentState.y = action.y;
+  }
 
-describe("Rolling back using actions", () => {
-  var manager1,
-    manager2,
-    entity;
+  function transformGenerator(state) {
+    return {
+      'name': 'Transform',
+      'state': {
+        'x': state.x,
+        'y': state.y
+      }
+    };
+  }
+
+  function moveListener(args, actionManager) {
+    actionManager.dispatch({
+      'type': 'MOVE',
+      'entity': args.entity,
+      'x': args.x,
+      'y': args.y
+    });
+  }
 
   beforeEach(() => {
-    manager1 = new Manager();
-    manager2 = new Manager();
+    clientSocket1 = new Emitter();
+    clientSocket2 = new Emitter();
+    clientManager1 = new ClientManager(clientSocket1);
+    clientManager2 = new ClientManager(clientSocket2);
 
-    applyComponentGenerators(manager1);
-    applyComponentGenerators(manager2);
+    serverManager = new ServerManager();
+    serverManager.addClient(clientID1, clientSocket1);
+    serverManager.addClient(clientID2, clientSocket2);
 
-    entity = manager1.addEntityFromComponents([
-      renderComponent,
-      transformComponent
-    ]);
+    serverManager.addReducer(moveReducer, ['MOVE']);
+    clientManager1.addReducer(moveReducer, ['MOVE']);
+    clientManager2.addReducer(moveReducer, ['MOVE']);
+    serverManager.addComponentToLibrary('Transform', transformGenerator);
+    clientManager1.addComponentToLibrary('Transform', transformGenerator);
+    clientManager2.addComponentToLibrary('Transform', transformGenerator);
 
-    manager2.addEntityFromComponents([
-      renderComponent,
-      transformComponent
-    ], entity);
+    serverManager.addListener('MOVE_EVENT', moveListener);
+    clientManager1.addListener('MOVE_EVENT', moveListener);
+    clientManager2.addListener('MOVE_EVENT', moveListener);
 
-    manager1.addReducer(moveReducer, ['MOVE']);
-    manager1.addReducer(relayerReducer, ['RELAYER']);
-    manager2.addReducer(moveReducer, ['MOVE']);
-    manager2.addReducer(relayerReducer, ['RELAYER']);
+    var component = {
+      'name': 'Transform',
+      'args': {
+        'x': 0,
+        'y': 0
+      }
+    };
+    serverManager.addEntityFromComponents([
+      Object.assign({}, component)
+    ], entityHash);
+    clientManager1.addEntityFromComponents([
+      Object.assign({}, component)
+    ], entityHash);
+    clientManager2.addEntityFromComponents([
+      Object.assign({}, component)
+    ], entityHash);
 
+    updateFunction = () => {
+      clientManager1.update();
+      clientManager2.update();
+      serverManager.update();
+    }
   });
 
-  test("State queue is updated properly", () => {
-    // var firstState = manager1.toJSON();
+  test("All three managers have the same state", () => {
+    expect(clientManager1.serializeState()).toEqual(clientManager2.serializeState());
+    expect(clientManager1.serializeState()).toEqual(serverManager.serializeState());
+    expect(clientManager2.serializeState()).toEqual(serverManager.serializeState());
+  });
 
-    var testFun1 = jest.fn(),
-      testFun2 = jest.fn();
-    manager1.dispatch({
+  test("Both can update together and stay in sync", () => {
+    updateFunction();
+    updateFunction();
+    updateFunction();
+    expect(clientManager1.serializeState()).toEqual(clientManager2.serializeState());
+    expect(clientManager1.serializeState()).toEqual(serverManager.serializeState());
+    expect(clientManager2.serializeState()).toEqual(serverManager.serializeState());
+  });
+
+  test("Server is authoritative when server state changes", () => {
+    updateFunction();
+
+    serverManager.dispatch({
       'type': 'MOVE',
+      'entity': entityHash,
       'x': 1,
-      'y': 1,
-      'entity': entity,
-      'revert': () => { testFun1(); }
+      'y': 2
     });
-
-    manager1.dispatch({
-      'type': 'RELAYER',
-      'layer': 3,
-      'entity': entity,
-      'revert': () => { testFun1(); }
-    });
-
-    manager2.dispatch({
-      'type': 'MOVE',
-      'x': 2,
-      'y': 2,
-      'entity': entity,
-      'revert': () => { testFun2(); }
-    });
-
-    manager2.dispatch({
-      'type': 'RELAYER',
-      'layer': 4,
-      'entity': entity,
-      'revert': () => { testFun2(); }
-    });
-
-    manager1.rollback_actions(0);
-    expect(manager1._stateQueue.length).toBe(2);
-    expect(testFun1).toHaveBeenCalledTimes(2);
-
-    manager2.rollback_actions(1);
-    expect(manager2._stateQueue.length).toBe(1);
-    expect(testFun2).toHaveBeenCalledTimes(1);
+    updateFunction();
+    expect(clientManager1.serializeState()).toEqual(clientManager2.serializeState());
+    expect(clientManager1.serializeState()).toEqual(serverManager.serializeState());
+    expect(clientManager2.serializeState()).toEqual(serverManager.serializeState());
   });
 
-  test("Rolling back gets to correct previous state", () => {
-    var transformState = getTransformState(entity, manager1),
-      firstX = transformState.x,
-      firstY = transformState.y;
-
-    var firstState = manager1.toJSON();
-    manager1.dispatch({
-      'type': 'MOVE',
-      'x': 4,
-      'y': 4,
-      'entity': entity,
-      'revert': () => {
-        transformState.x = firstX;
-        transformState.y = firstY;
-      }
+  test("Multiple clients can use the same server and everyone stays in sync", () => {
+    clientManager1.emit('MOVE_EVENT', {'entity': entityHash, 'x': 1, 'y': 2});
+    updateFunction();
+    expect(clientManager1.serializeState()).toEqual(clientManager2.serializeState());
+    expect(clientManager1.serializeState()).toEqual(serverManager.serializeState());
+    expect(clientManager2.serializeState()).toEqual(serverManager.serializeState());
+    expect(clientManager1.serializeState()).toEqual({
+      'entities': [
+        {
+          'hash': entityHash,
+          'components': {
+            'Transform': {
+              'x': 1,
+              'y': 2
+            }
+          },
+          'subState': 'default'
+        }
+      ]
     });
 
-    var secondState = manager1.toJSON();
-
-    var renderState = getRenderState(entity, manager1),
-      firstLayer = renderState.layer;
-
-    manager1.dispatch({
-      'type': 'RELAYER',
-      'layer': 3,
-      'entity': entity,
-      'revert': () => {
-        renderState.layer = firstLayer;
-      }
+    clientManager2.emit('MOVE_EVENT', {'entity': entityHash, 'x': 3, 'y': 4});
+    clientManager2.emit('MOVE_EVENT', {'entity': entityHash, 'x': 5, 'y': 6});
+    updateFunction();
+    expect(clientManager1.serializeState()).toEqual({
+      'entities': [
+        {
+          'hash': entityHash,
+          'components': {
+            'Transform': {
+              'x': 3,
+              'y': 4
+            }
+          },
+          'subState': 'default'
+        }
+      ]
     });
-
-    var thirdState = manager1.toJSON();
-
-    expect(firstState).not.toEqual(secondState);
-    expect(firstState).not.toEqual(thirdState);
-    expect(secondState).not.toEqual(thirdState);
-
-    manager1.rollback_actions(0);
-    expect(manager1._stateQueue.length).toBe(2);
-    expect(manager1.toJSON()).toEqual(firstState);
-
-    manager1.unroll();
-    expect(manager1.toJSON()).toEqual(thirdState);
-
-    manager1.rollback_actions(1);
-    expect(manager1.toJSON()).toEqual(secondState);
-    manager1.unroll();
-    expect(manager1.toJSON()).toEqual(thirdState);
+    expect(clientManager1.serializeState()).toEqual(serverManager.serializeState());    
+    expect(clientManager2.serializeState()).toEqual({
+      'entities': [
+        {
+          'hash': entityHash,
+          'components': {
+            'Transform': {
+              'x': 5,
+              'y': 6
+            }
+          },
+          'subState': 'default'
+        }
+      ]
+    });
+    updateFunction();
+    expect(clientManager1.serializeState()).toEqual(clientManager2.serializeState());
+    expect(clientManager1.serializeState()).toEqual(serverManager.serializeState());
+    expect(clientManager2.serializeState()).toEqual(serverManager.serializeState());
   });
-});
-
-describe("More robust testing", () => {
-  var client1,
-    client2,
-    server,
-    entity;
-
-  beforeEach(() => {
-    client1 = new Manager();
-    client2 = new Manager();
-    server = new Manager();
-
-    applyComponentGenerators(client1);
-    applyComponentGenerators(client2);
-    applyComponentGenerators(server);
-
-    entity = client1.addEntityFromComponents([
-      renderComponent,
-      transformComponent
-    ]);
-
-    client2.addEntityFromComponents([
-      renderComponent,
-      transformComponent
-    ], entity);
-
-    server.addEntityFromComponents([
-      renderComponent,
-      transformComponent
-    ], entity);
-
-    client1.addReducer(moveReducer, ['MOVE']);
-    client1.addReducer(relayerReducer, ['RELAYER']);
-    client1.addReducer(addEntityReducer, ['ADD']);
-    client2.addReducer(moveReducer, ['MOVE']);
-    client2.addReducer(relayerReducer, ['RELAYER']);
-    client2.addReducer(addEntityReducer, ['ADD']);
-
-    client1.addEmitSideEffect((eventType, args) => {
-      server.emit(eventType, args);
-    });
-
-    client2.addEmitSideEffect((eventType, args) => {
-      server.emit(eventType, args);
-    });
-
-    server.addDispatchSideEffect((action) => {
-      client1.rollback(server._stateCounter, server.toJSON());
-      client1.unroll();
-      client2.rollback(server._stateCounter, server.toJSON());
-      client2.unroll();
-    });
-
-    client1.addListener("CLIENT_ONLY_EVENT", (args, manager) => {
-      manager.dispatch({
-        'type': 'ADD'
-      });
-    });
-
-    client2.addListener("CLIENT_ONLY_EVENT", (args, manager) => {
-      manager.dispatch({
-        'type': 'ADD'
-      });
-    });
-
-    client1.addListener("BOTH_EVENT", (args, manager) => {
-      manager.dispatch({
-        'type': 'MOVE',
-        'x': args.x,
-        'y': args.y,
-        'entity': args.entity
-      });
-    });
-
-    client2.addListener("BOTH_EVENT", (args, manager) => {
-      manager.dispatch({
-        'type': 'MOVE',
-        'x': args.x,
-        'y': args.y,
-        'entity': args.entity
-      });
-    });
-
-    server.addListener("BOTH_EVENT", (args, manager) => {
-      manager.dispatch({
-        'type': 'MOVE',
-        'x': args.x,
-        'y': args.y,
-        'entity': args.entity
-      });
-    });
-  });
-
-  test("General client-server approach isn't inherently breaking anything", () => {
-    client1.emit("BOTH_EVENT", {'x': 4, 'y': 5});
-    // expect(client1._stateCounter).toBe(server._stateCounter);
-    // expect(client1.toJSON()).toEqual(client2.toJSON());
-  });
-
-  // test("Reducer that adds an entity isn't creating duplicates", () => {
-    
-
-  // });
-
-  // test("Using events and emit side effects to resemble server-client architecture", () => {
-
-  // });
 });

@@ -7,13 +7,18 @@
 
 //node imports
 const Dict = require('collections/dict.js'),
-  Set = require('collections/set.js');
+  Set = require('collections/set.js'),
+  SortedArray = require('collections/sorted-array.js');
 
 //user imports
 const Entity = require('./Entity.js');
+const isEqual = require('lodash/isEqual.js');
+
+//constants
+const MAXIMUM_BUFFER_LENGTH = 8;
 
 class StateManager {
-  constructor() {
+  constructor(bufferSize) {
 
     this._entities = new Dict();
     this._entitiesByComponent = new Dict();
@@ -21,6 +26,21 @@ class StateManager {
     this._subStates = new Dict({
       'default': new Set()
     });
+
+    this._stateBuffer = new SortedArray([],
+      (first, second) => {
+        return first.tick == second.tick;
+      },
+      (first, second) => {
+        return first.tick - second.tick;
+      }
+    );
+
+    this._maxBufferSize = bufferSize || MAXIMUM_BUFFER_LENGTH;
+  }
+
+  setMaxBufferSize(value) {
+    this._maxBufferSize = value;
   }
 
   /**
@@ -245,6 +265,11 @@ class StateManager {
     this.addEntitiesToSubState(name, [entity]);
   }
 
+  /**
+   * @description - Removes the given entities from the given substate
+   * @param {String} name - the name of the substate to remove from
+   * @param {Array} entities - the array of entity hashes to remove
+   */
   removeEntitiesFromSubState(name, entities) {
     if (!this._subStates.has(name)) {
       throw new TypeError("Can't remove entities from an unknown substate: " + name);
@@ -262,6 +287,78 @@ class StateManager {
       subState.delete(entityHash);
       this._entities.get(entityHash).set('subState', 'default');
     }
+  }
+
+  /**
+   * @description - Updates the state manager. Currently only updates the buffer
+   */
+  update(currentTick) {
+    this.bufferState(currentTick);
+  }
+
+  /**
+   * @description - Buffers the current state into the state buffer
+   * @param {Number} current tick - the tick to save the state under for
+   * keeping track of the different buffered states
+   */
+  bufferState(currentTick) {
+    while (this._stateBuffer.length >= this._maxBufferSize) {
+      this._stateBuffer.shift();
+    }
+
+    this._stateBuffer.push({
+      'tick': currentTick,
+      'subStates': this._subStates.clone(),
+      'state': this._entities.clone()
+    });
+  }
+
+  /**
+   * @description - Restores the state from a state that is
+   * currently in the buffer
+   * @param {Number} tick - the state to restore to
+   */
+  restoreState(tick) {
+    var bufferedState = this.getBufferedState(tick);
+    if (!bufferedState) {
+      throw new TypeError("No state listed under tick: '" + tick.toString() + "'");
+    }
+
+    this._entities = bufferedState.state;
+    this._subStates = bufferedState.subStates;
+  }
+
+  /**
+   * @description - Returns the state within the buffer, if available
+   * @param {Number} tick - the state to retrieve
+   * @returns {Object} the object that was placed into the buffer
+   * in {@link bufferState}
+   */
+  getBufferedState(tick) {
+    for (var bufferedState of this._stateBuffer.toArray()) {
+      if (bufferedState.tick == tick) {
+        return bufferedState;
+      }
+    }
+  }
+
+  /**
+   * @description - Returns the state buffer
+   * @returns {Array} the array of state buffer objects
+   */
+  getStateBuffer() {
+    return this._stateBuffer;
+  }
+
+  /**
+   * @description - Static method for comparing two serialized states
+   * for equality
+   * @param {Object} stateA - the first state to compare with
+   * @param {Object} stateB - the second state to compare against
+   * @returns {Boolean} are the states equal?
+   */
+  serializedStateEquality(stateA, stateB) {
+    return isEqual(stateA, stateB);
   }
 
   /**
