@@ -7,7 +7,7 @@
 
 //node imports
 const Dict = require('collections/dict.js'),
-  // Set = require('collections/set.js'),
+  Set = require('collections/set.js'),
   SortedArray = require('collections/sorted-array.js');
 
 //user imports
@@ -57,8 +57,7 @@ class StateManager {
    * @returns {Set} set of all the entities hashes
    */
   getEntitySet() {
-    var returnValue = new Set(this._entities.keys());
-    return returnValue;
+    return new Set(this._entities.keys());
   }
 
   /**
