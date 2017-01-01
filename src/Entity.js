@@ -77,7 +77,7 @@ class Entity {
     var componentDict = this._components.get(component.name),
       initFunction = componentDict.get('init');
     if (initFunction) {
-      initFunction(componentDict.get('state'));
+      initFunction(componentDict.get('state'), componentDict);
     }
   }
 
@@ -115,7 +115,7 @@ class Entity {
     var componentObject = this._components.get(name),
       removeFunction = componentObject.get('remove');
     if (removeFunction)
-      removeFunction(/*this._manager*/);
+      removeFunction(componentObject);
 
     this._components.delete(name);
 
