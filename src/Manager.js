@@ -65,6 +65,16 @@ class Manager {
     return this._stateManager.getEntities();
   }
 
+  /** 
+   * @description - Returns the state of an entity's specific component
+   * @param {String} entity - the hash of the entity
+   * @param {String} component - the specific component to retrieve
+   * @returns {Object} the state object of the component
+   */
+  getEntityComponent(entity, component) {
+    return this._stateManager.getEntityComponent(entity, component);
+  }
+
   /**
    * @description - Helper method to get retrieve data for a single entity
    * @param {String} hash - the hash value for the entity that is being 
