@@ -83,6 +83,9 @@ class StateManager {
    * from
    */
   getEntityComponent(hash, component) {
+    if (!hash) {
+      return undefined;
+    }
     var entityComponents = this.getEntityState(hash);
     return entityComponents.get(component).get('state');
   }
