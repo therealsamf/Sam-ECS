@@ -352,7 +352,14 @@ class StateManager {
       }
     }
 
+    var _this = this;
+    this._entities.forEach((value, key, dict) => {
+      value.get('object').removeComponentsMethod();
+    });
     this._entities = bufferedState.state;
+    this._entities.forEach((value, key, dict) => {
+      value.get('object').initializeComponents();
+    });
     this._subStates = bufferedState.subStates;
   }
 
