@@ -21,6 +21,7 @@ class StateManager {
   constructor(bufferSize) {
 
     this._entities = new Dict();
+
     this._entitiesByComponent = new Dict();
 
     this._subStates = new Dict({
@@ -149,6 +150,7 @@ class StateManager {
 
 
     entity.setManager(this);
+    return entity.hash();
   }
 
   /**
