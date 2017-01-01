@@ -74,11 +74,11 @@ class Entity {
           ._invalidateProcessorListsByEntityComponent(this.hash(), component.name);
     }
 
-    var componentDict = this._components.get(component.name),
-      initFunction = componentDict.get('init');
-    if (initFunction) {
-      initFunction(componentDict.get('state'), componentDict);
-    }
+    // var componentDict = this._components.get(component.name),
+    //   initFunction = componentDict.get('init');
+    // if (initFunction) {
+    //   initFunction(componentDict.get('state'), componentDict);
+    // }
   }
 
   /**
@@ -112,10 +112,7 @@ class Entity {
       throw new TypeError("'" + name + "' isn't a component of this entity!");
     }
 
-    var componentObject = this._components.get(name),
-      removeFunction = componentObject.get('remove');
-    if (removeFunction)
-      removeFunction(componentObject);
+    this.removeComponentMethod(name);
 
     this._components.delete(name);
 
@@ -127,6 +124,37 @@ class Entity {
       if (notifyManager) {
         this._manager._invalidateProcessorListsByEntityComponent(this.hash(), name);
       }
+    }
+  }
+
+  /**
+   * @description - Calls the init function on all our components
+   */
+  initializeComponents() {
+    this._components.forEach((value, key, dict) => {
+      var initFunction = value.get('init');
+      if (initFunction) {
+        initFunction(value.get('state'), value);
+      }
+    });
+  }
+
+
+  removeComponentsMethod() {
+    this._components.forEach((value, key, dict) => {
+      var removeFunction = value.get('remove');
+      if (removeFunction)
+        removeFunction(value);
+    });
+  }
+
+  removeComponentMethod(componentName) {
+    var componentObject = this._components.get(componentName);
+    if (componentObject) {
+      var removeFunction = componentObject.get('remove');
+    
+      if (removeFunction)
+        removeFunction(componentObject);
     }
   }
 

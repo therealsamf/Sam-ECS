@@ -134,7 +134,7 @@ class StateManager {
    */
   addEntity(entity, subState) {
     if (this._entities.has(entity.hash())) {
-      this.removeEntity(entity, false);
+      this.removeEntity(this._entities.get(entity.hash()).get('object'), true);
     }
 
     var entitySubState = subState || 'default';
@@ -151,6 +151,7 @@ class StateManager {
     }));
     this.addEntityToSubState(entitySubState, entity.hash());
 
+    entity.initializeComponents();
 
     entity.setManager(this);
     return entity.hash();
@@ -459,7 +460,7 @@ class StateManager {
     entityList.forEach((value, index, array) => {
       var hash = value.hash;
       if (_this._entities.has(hash)) {
-        var entityObject = _this._entities.get(hash).get('object');
+        var entityObject = _this._entities.get(hash).get('object').clone();
         entityObject.deserialize(value, componentManager);
         //this should erase the old one and replace it with a new one
         _this.addEntity(entityObject, value.subState);

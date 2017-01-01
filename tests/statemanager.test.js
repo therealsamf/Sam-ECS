@@ -39,13 +39,14 @@ describe("Entities", () => {
     transformComponent.init = jest.fn();
     entity.addComponent(transformComponent);
 
-    expect(transformComponent.init).toHaveBeenCalled();
-    expect(transformComponent.init).toHaveBeenCalledWith(transformComponent.state,
-      entity.getComponent('Transform'));
+    
 
     entity.addComponent(renderComponent);
 
     stateManager.addEntity(entity);
+    expect(transformComponent.init).toHaveBeenCalled();
+    expect(transformComponent.init).toHaveBeenCalledWith(transformComponent.state,
+      entity.getComponent('Transform'));
 
     expect(stateManager.getEntitiesByComponent('Transform').toArray()).toEqual([entity.hash()]);
     expect(stateManager.getEntitiesByComponent('Render').toArray()).toEqual([entity.hash()]);
@@ -320,8 +321,10 @@ describe("Saving and restoring state", () => {
     var stateManager2 = new StateManager();
     stateManager2.addEntity(entity3);
 
+    var previousStateManagerState = stateManager.serializeState();
     expect(stateManager.serializeState()).not.toEqual(stateManager2.serializeState());
     stateManager2.mergeState(stateManager.serializeState(), componentManager);
+    expect(stateManager.serializeState()).toEqual(previousStateManagerState);
     expect(stateManager.serializeState()).toEqual(stateManager2.serializeState());
   });
 });
@@ -400,7 +403,7 @@ describe("Buffering state", () => {
     stateManager.update(0);
     stateManager.update(1);
     expect(() => { stateManager.restoreState(0); }).not.toThrow();
-    expect(() => { stateManager.restoreState(2); }).toThrow();
+    expect(() => { stateManager.restoreState(2); }).not.toThrow();
   });
 });
 

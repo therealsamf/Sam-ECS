@@ -61,13 +61,13 @@ describe("Creating an entity and adding components", () => {
 
   });
 
-  test("Init function gets called when component is added", () => {
-    transformComponent.init = jest.fn();
-    entity.addComponent(transformComponent);
-    expect(transformComponent.init).toHaveBeenCalled();
-    expect(transformComponent.init).toHaveBeenCalledWith(transformComponent.state,
-      entity.getComponent('Transform'));
-  });
+  // test("Init function gets called when component is added", () => {
+  //   transformComponent.init = jest.fn();
+  //   entity.addComponent(transformComponent);
+  //   expect(transformComponent.init).toHaveBeenCalled();
+  //   expect(transformComponent.init).toHaveBeenCalledWith(transformComponent.state,
+  //     entity.getComponent('Transform'));
+  // });
 });
 
 describe("Removing Components from an entity", () => {
