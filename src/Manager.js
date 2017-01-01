@@ -341,6 +341,14 @@ class Manager {
   serializeState(subState) {
     return this._stateManager.serializeState(subState);
   }
+
+
+  /**
+   * @description - Returns the serialized state
+   */
+  toJSON() {
+    return this.serializeState();
+  }
 }
 
 module.exports = Manager;
