@@ -121,7 +121,9 @@ class ActionManager {
   reApplyFrom(tick, stateManager) {
     var actionBuffer = this.getActionBuffer(tick);
     if (!actionBuffer) {
-      throw new RangeError("Tick: '" + tick.toString() + "' is out of range!");
+      actionBuffer = this._actionBuffer.min();
+      if (!actionBuffer)
+        throw new RangeError("Tick: '" + tick.toString() + "' is out of range!");
     }
     while (actionBuffer) {
       for (var action of actionBuffer) {
