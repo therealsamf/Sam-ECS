@@ -344,7 +344,11 @@ class StateManager {
   restoreState(tick) {
     var bufferedState = this.getBufferedState(tick);
     if (!bufferedState) {
-      throw new TypeError("No state listed under tick: '" + tick.toString() + "'");
+      // throw new TypeError("No state listed under tick: '" + tick.toString() + "'");
+      bufferedState = this._stateBuffer.min();
+      if (!bufferedState) {
+        throw new TypeError("No state listed under tick: '" + tick.toString() + "'");
+      }
     }
 
     this._entities = bufferedState.state;
