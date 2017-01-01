@@ -124,6 +124,7 @@ class ActionManager {
       actionBuffer = this._actionBuffer.min();
       if (!actionBuffer)
         throw new RangeError("Tick: '" + tick.toString() + "' is out of range!");
+      actionBuffer = actionBuffer.actions;
     }
     while (actionBuffer) {
       for (var action of actionBuffer) {
