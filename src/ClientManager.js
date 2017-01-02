@@ -7,7 +7,7 @@
  */
 
 //constants
-const MAXIMUM_BUFFER_SIZE = 8;
+const MAXIMUM_BUFFER_SIZE = 12;
 
 const Manager = require('./Manager.js');
 
@@ -26,12 +26,15 @@ class ClientManager extends Manager {
     this.addEmitSideEffect(this.eventFun);
 
     this._socket = socket;
+
+    this.setMaxBufferSize(MAXIMUM_BUFFER_SIZE);
+
     var _this = this;
     socket.on('UPDATE', (data) => {
       _this.receiveState(data);
     });
     socket.on('CONNECTION', () => {
-      socket.emit('BUFFER', MAXIMUM_BUFFER_SIZE);
+      socket.emit('BUFFER', MAXIMUM_BUFFER_SIZE - 4);
       socket.emit('ACKNOWLEDGE', {'tick': this._lastAcknowledgedState});
     });
   }
