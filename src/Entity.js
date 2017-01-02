@@ -186,7 +186,9 @@ class Entity {
    */
   deserialize(entityState, componentManager) {
     var _this = this;
+    var states = {};
     this._components.forEach((value, key, dict) => {
+      states[key] = value.get('state');
       _this.removeComponent(key, false);
     });
 
@@ -194,7 +196,7 @@ class Entity {
     for (var componentName in entityState.components) {
       this.addComponent(componentManager.createComponent(
         componentName, 
-        entityState.components[componentName]
+        Object.assign({}, states[componentName], entityState.components[componentName])
       ), false);
     }
   }
