@@ -58,34 +58,39 @@ class ClientManager extends Manager {
   }
 
   receiveState(stateObject) {
-    var tick = stateObject.tick;
+    if (window) {
+      var _this = this;
+      setTimeout(() => {
+        var tick = stateObject.tick;
 
-    // we don't care about states in the past?
-    if (tick < this._lastAcknowledgedState) {
-      return;
-    }
+        // we don't care about states in the past?
+        if (tick < _this._lastAcknowledgedState) {
+          return;
+        }
 
-    if (this._lastAcknowledgedState > 0) {
-      this._stateManager.restoreState(this._lastAcknowledgedState);
-    }
+        if (_this._lastAcknowledgedState > 0) {
+          _this._stateManager.restoreState(_this._lastAcknowledgedState);
+        }
 
-    this._stateManager.mergeState(stateObject.state, this._componentManager);
-    if (tick < this._currentTick) {
-      this._actionManager.reApplyFrom(tick, this._stateManager);
-    }
-    // we're behind (cheating?)
-    else {
-      this._currentTick = tick;
-      this._stateManager.bufferState(this._currentTick);
-    }
+        _this._stateManager.mergeState(stateObject.state, _this._componentManager);
+        if (tick < _this._currentTick) {
+          _this._actionManager.reApplyFrom(tick, _this._stateManager);
+        }
+        // we're behind (cheating?)
+        else {
+          _this._currentTick = tick;
+          _this._stateManager.bufferState(_this._currentTick);
+        }
 
-    var previousAckState = this._lastAcknowledgedState;
-    this._lastAcknowledgedState = tick;
-    this._socket.emit('ACKNOWLEDGE', {'tick': tick});
-    // we've acknowledged a new state. Time to send a new event
-    if (tick > previousAckState) {
-      this._eventPending = false;
-      this.sendNextEvent();
+        var previousAckState = _this._lastAcknowledgedState;
+        _this._lastAcknowledgedState = tick;
+        _this._socket.emit('ACKNOWLEDGE', {'tick': tick});
+        // we've acknowledged a new state. Time to send a new event
+        if (tick > previousAckState) {
+          _this._eventPending = false;
+          _this.sendNextEvent();
+        }
+      }, 0);
     }
   }
 
