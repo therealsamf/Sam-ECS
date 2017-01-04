@@ -550,6 +550,32 @@ class StateManager {
 
     subStateSet.clear();
   }
+
+  /**
+   * @description - Returns the entire state of the StateManager
+   */
+  getState() {
+    var state = {};
+    for (var subState of this._subStates.keys()) {
+      state[subState] = this.serializeState(subState);
+    }
+
+    return state;
+  }
+
+  /**
+   * @description - Takes in an entire state generated from 
+   * {@link getState} and merges it in
+   * @param {Object} state - the whole state object generated from 
+   * 'getState'
+   * @param {ComponentManager} componentManager - the componentManager
+   * for {@link mergeState}
+   */
+  mergeEntireState(state, componentManager) {
+    for (var subState in state) {
+      this.mergeState(state[subState], componentManager, subState);
+    }
+  }
 }
 
 

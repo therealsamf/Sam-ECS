@@ -10,11 +10,13 @@
 const MAXIMUM_BUFFER_SIZE = 12;
 
 const Manager = require('./Manager.js');
+const StateManager = require('./StateManager.js');
 
 class ClientManager extends Manager {
   constructor(socket) {
     super();
 
+    
     this._user = undefined;
 
     this._lastAcknowledgedState = -1;
@@ -28,6 +30,7 @@ class ClientManager extends Manager {
     this._socket = socket;
 
     this.setMaxBufferSize(MAXIMUM_BUFFER_SIZE);
+    this._otherStateManager = new StateManager(MAXIMUM_BUFFER_SIZE);
 
     var _this = this;
     socket.on('UPDATE', (data) => {
@@ -58,39 +61,42 @@ class ClientManager extends Manager {
   }
 
   receiveState(stateObject) {
-    if (window) {
-      var _this = this;
-      setTimeout(() => {
-        var tick = stateObject.tick;
+    var tick = stateObject.tick;
 
-        // we don't care about states in the past?
-        if (tick < _this._lastAcknowledgedState) {
-          return;
-        }
+    // we don't care about states in the past?
+    if (tick < this._lastAcknowledgedState) {
+      return;
+    }
 
-        if (_this._lastAcknowledgedState > 0) {
-          _this._stateManager.restoreState(_this._lastAcknowledgedState);
-        }
+    if (this._lastAcknowledgedState > 0) {
+      // this._stateManager.restoreState(this._lastAcknowledgedState);
+      this._otherStateManager.mergeState(
+        this._otherStateManager._serializeState(
+          this._stateManager.getBufferedState(this._lastAcknowledgedState).state
+        ),
+        this._componentManager
+      );
+    }
 
-        _this._stateManager.mergeState(stateObject.state, _this._componentManager);
-        if (tick < _this._currentTick) {
-          _this._actionManager.reApplyFrom(tick, _this._stateManager);
-        }
-        // we're behind (cheating?)
-        else {
-          _this._currentTick = tick;
-          _this._stateManager.bufferState(_this._currentTick);
-        }
+    this._otherStateManager.mergeState(stateObject.state, this._componentManager);
+    // this._stateManager.mergeState(stateObject.state, this._componentManager);
+    if (tick < this._currentTick) {
+      this._actionManager.reApplyFrom(tick, this._otherStateManager);
+    }
+    // we're behind (cheating?)
+    else {
+      this._currentTick = tick;
+      this._stateManager.bufferState(this._currentTick);
+    }
+    this._stateManager.mergeEntireState(this._otherStateManager.getState(), this._componentManager);
 
-        var previousAckState = _this._lastAcknowledgedState;
-        _this._lastAcknowledgedState = tick;
-        _this._socket.emit('ACKNOWLEDGE', {'tick': tick});
-        // we've acknowledged a new state. Time to send a new event
-        if (tick > previousAckState) {
-          _this._eventPending = false;
-          _this.sendNextEvent();
-        }
-      }, 0);
+    var previousAckState = this._lastAcknowledgedState;
+    this._lastAcknowledgedState = tick;
+    this._socket.emit('ACKNOWLEDGE', {'tick': tick});
+    // we've acknowledged a new state. Time to send a new event
+    if (tick > previousAckState) {
+      this._eventPending = false;
+      this.sendNextEvent();
     }
   }
 
