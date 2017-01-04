@@ -187,7 +187,16 @@ class Entity {
   clone() {
     var returnEntity = new Entity();
     returnEntity._setHash(this.hash());
-    returnEntity._components = this._components.clone();
+
+    this._components.forEach((value, key, dict) => {
+      var componentObject = {
+        'name': key,
+        'state': Object.assign({}, value.get('state')),
+        'init': value.get('init'),
+        'remove': value.get('remove')
+      };
+      returnEntity.addComponent(componentObject);
+    });
     return returnEntity;
   }
 }

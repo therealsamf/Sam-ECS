@@ -40,7 +40,8 @@ describe("Entities", () => {
     entity.addComponent(transformComponent);
 
     expect(transformComponent.init).toHaveBeenCalled();
-    expect(transformComponent.init).toHaveBeenCalledWith(transformComponent.state);
+    expect(transformComponent.init).toHaveBeenCalledWith(transformComponent.state,
+      entity.getComponent('Transform'));
 
     entity.addComponent(renderComponent);
 

@@ -65,7 +65,8 @@ describe("Creating an entity and adding components", () => {
     transformComponent.init = jest.fn();
     entity.addComponent(transformComponent);
     expect(transformComponent.init).toHaveBeenCalled();
-    expect(transformComponent.init).toHaveBeenCalledWith(transformComponent.state);
+    expect(transformComponent.init).toHaveBeenCalledWith(transformComponent.state,
+      entity.getComponent('Transform'));
   });
 });
 
@@ -93,9 +94,10 @@ describe("Removing Components from an entity", () => {
   test("Remove function gets called when component is removed", () => {
     transformComponent.remove = jest.fn();
     entity.addComponent(transformComponent);
+    var transformDict = entity.getComponent('Transform');
     entity.removeComponent('Transform');
     expect(transformComponent.remove).toHaveBeenCalled();
-    expect(transformComponent.remove).toHaveBeenCalledWith();
+    expect(transformComponent.remove).toHaveBeenCalledWith(transformDict);
   });
 });
 
