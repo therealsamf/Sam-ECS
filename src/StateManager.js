@@ -314,8 +314,26 @@ class StateManager {
     this._stateBuffer.push({
       'tick': currentTick,
       'subStates': this._subStates.clone(),
-      'state': this._entities.clone()
+      'state': this.cloneEntities()
     });
+  }
+
+  /**
+   * @description - Returns a clone of the _entities dict
+   * @returns {Dict} a perfect clone of the _entities dict
+   */
+  cloneEntities() {
+    var clonedDict = new Dict();
+    this._entities.forEach((value, key, dict) => {
+      var clonedEntity = value.get('object').clone();
+      clonedDict.set(key, new Dict({
+        'object': clonedEntity,
+        'components': clonedEntity.getComponents(),
+        'subState': value.get('subState')
+      }));
+    });
+
+    return clonedDict;
   }
 
   /**
