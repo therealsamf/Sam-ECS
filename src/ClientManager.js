@@ -109,11 +109,9 @@ class ClientManager extends Manager {
       if (!this._worker) {
         this._worker = new StateWorker();
         var _this = this;
-        this._worker.onmessage = (mes) => {
-          _this.workerResolve(mes, tick);
-        };
+        this._worker.onmessage = this.workerResolve.bind(this);
       }
-
+      this.tickValue = tick;
       var oldDict = this._stateManager.getBufferedState(tick);
       var oldState;
       if (oldDict !== undefined) {
@@ -134,7 +132,8 @@ class ClientManager extends Manager {
     }
   }
 
-  workerResolve(mes, tick) {
+  workerResolve(mes) {
+    var tick = this.tickValue;
     var data = mes.data;
 
     this._otherStateManager.mergeState(data, this._componentManager);
