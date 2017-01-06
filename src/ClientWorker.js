@@ -8,7 +8,7 @@
 onmessage = function(e) {
   var data = e.data;
   var oldState = data.oldState,
-    entityList = oldState.entityList,
+    entityList = oldState.entities,
     stateChanges = data.deltaState,
     changeList = stateChanges.entities;
 
