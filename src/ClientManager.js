@@ -13,7 +13,7 @@ const Manager = require('./Manager.js');
 const StateManager = require('./StateManager.js');
 
 var StateWorker
-if (window && window.Worker) 
+if (window !== undefined && window.Worker) 
   StateWorker = require("worker!./ClientWorker.js");
 
 class ClientManager extends Manager {
@@ -72,7 +72,7 @@ class ClientManager extends Manager {
       return;
     }
 
-    if (!window || !window.Worker) {
+    if (window === undefined || !window.Worker) {
 
       if (this._lastAcknowledgedState > 0 && tick > this._lastAcknowledgedState) {
         this._stateManager.restoreState(tick);
