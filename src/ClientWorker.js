@@ -16,10 +16,16 @@ onmessage = function(e) {
   var changes = {};
 
   for (var entity of entityList) {
-    entities[entity.hash] = entity.components;
+    entities[entity.hash] = {
+      'components': entity.components,
+      'subState': entity.subState
+    };
   }
   for (var entity of changeList) {
-    changes[entity.hash] = entity.components;
+    changes[entity.hash] = {
+      'components': entity.components,
+      'subState': entity.subState
+    };
   }
 
   for (var entityHash in changes) {
@@ -48,5 +54,14 @@ onmessage = function(e) {
     }
   }
 
+  var newEntityList = new Array();
+  for (var entityHash of entities) {
+    newEntityList.push({
+      'subState': entities[entityHash].subState,
+      'components': entities[entityHash].components,
+      'hash': entityHash
+    });
+  }
+  oldState.entities = newEntityList;
   postMessage(oldState);
 }
