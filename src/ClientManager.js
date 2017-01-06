@@ -12,6 +12,8 @@ const MAXIMUM_BUFFER_SIZE = 12;
 const Manager = require('./Manager.js');
 const StateManager = require('./StateManager.js');
 
+const StateWorker = require("worker!./ClientWorker.js");
+
 class ClientManager extends Manager {
   constructor(socket) {
     super();
@@ -68,27 +70,75 @@ class ClientManager extends Manager {
       return;
     }
 
-    if (this._lastAcknowledgedState > 0) {
-      // this._stateManager.restoreState(this._lastAcknowledgedState);
-      this._otherStateManager.mergeState(
-        this._otherStateManager._serializeState(
-          this._stateManager.getBufferedState(this._lastAcknowledgedState).state
-        ),
-        this._componentManager
-      );
-    }
+    if (!window.Worker) {
 
-    this._otherStateManager.mergeState(stateObject.state, this._componentManager);
-    // this._stateManager.mergeState(stateObject.state, this._componentManager);
+      if (this._lastAcknowledgedState > 0 tick > this._lastAcknowledgedState) {
+        this._stateManager.restoreState(tick);
+        // this._otherStateManager.mergeState(
+        //   this._otherStateManager._serializeState(
+        //     this._stateManager.getBufferedState(this._lastAcknowledgedState).state
+        //   ),
+        //   this._componentManager
+        // );
+      }
+
+      // this._otherStateManager.mergeState(stateObject.state, this._componentManager);
+      this._stateManager.mergeState(stateObject.state, this._componentManager);
+      if (tick < this._currentTick) {
+        this._actionManager.reApplyFrom(tick, this._otherStateManager);
+      }
+      // we're behind (cheating?)
+      else {
+        this._currentTick = tick;
+        this._stateManager.bufferState(this._currentTick);
+      }
+      this._stateManager.mergeEntireState(this._otherStateManager.getState(), this._componentManager);
+
+      var previousAckState = this._lastAcknowledgedState;
+      this._lastAcknowledgedState = tick;
+      this._socket.emit('ACKNOWLEDGE', {'tick': tick});
+      // we've acknowledged a new state. Time to send a new event
+      if (tick > previousAckState) {
+        this._eventPending = false;
+        this.sendNextEvent();
+      }
+    }
+    else {
+      if (!this._worker) {
+        this._worker = new StateWorker();
+        var _this = this;
+        this._worker.onmessage = (mes) => {
+          _this.workerResolve(mes, tick);
+        };
+      }
+
+      this._worker.postMessage({
+        'oldState': this._stateManager._serializeState(this._stateManager.getBufferedState(tick)),
+        'deltaState': stateObject.state
+      });
+    }
+  }
+
+  workerResolve(mes, tick) {
+    var data = mes.data;
+
+    this._otherStateManager.mergeState(data, this._componentManager);
+
+
     if (tick < this._currentTick) {
       this._actionManager.reApplyFrom(tick, this._otherStateManager);
     }
     // we're behind (cheating?)
-    else {
+    else if (tick > this._currentTick) {
+      console.warning("We're behind the server by: " + (this._currentTick - tick) + " ticks."); 
       this._currentTick = tick;
       this._stateManager.bufferState(this._currentTick);
     }
-    this._stateManager.mergeEntireState(this._otherStateManager.getState(), this._componentManager);
+
+    this._stateManager.mergeState(
+      this._otherStateManager._serializeState(this._otherStateManager.getDeltaState(this._stateManager.getSubState())),
+      this._componentManager
+    );
 
     var previousAckState = this._lastAcknowledgedState;
     this._lastAcknowledgedState = tick;
