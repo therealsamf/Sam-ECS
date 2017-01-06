@@ -13,7 +13,7 @@ const Manager = require('./Manager.js');
 const StateManager = require('./StateManager.js');
 
 var StateWorker
-if (window !== undefined && window.Worker) 
+if (typeof(window) !== 'undefined' && window.Worker) 
   StateWorker = require("worker!./ClientWorker.js");
 
 class ClientManager extends Manager {
@@ -72,7 +72,7 @@ class ClientManager extends Manager {
       return;
     }
 
-    if (window === undefined || !window.Worker) {
+    if (typeof('window') === undefined || !window.Worker) {
 
       if (this._lastAcknowledgedState > 0 && tick > this._lastAcknowledgedState) {
         this._stateManager.restoreState(tick);
@@ -114,8 +114,18 @@ class ClientManager extends Manager {
         };
       }
 
+      var oldDict = this._stateManager.getBufferedState(tick);
+      var oldState;
+      if (oldDict !== undefined) {
+        var oldStateObject = oldDict.state;
+        oldState = this._stateManager._serializeState(oldStateObject);
+      }
+      else {
+        oldState = this._stateManager.serializeState();
+      }
+
       this._worker.postMessage({
-        'oldState': this._stateManager._serializeState(this._stateManager.getBufferedState(tick)),
+        'oldState': oldState,
         'deltaState': stateObject.state
       });
     }
@@ -132,7 +142,7 @@ class ClientManager extends Manager {
     }
     // we're behind (cheating?)
     else if (tick > this._currentTick) {
-      console.warning("We're behind the server by: " + (this._currentTick - tick) + " ticks."); 
+      console.warn("We're behind the server by: " + (tick - this._currentTick) + " ticks."); 
       this._currentTick = tick;
       this._stateManager.bufferState(this._currentTick);
     }
