@@ -55,7 +55,7 @@ onmessage = function(e) {
   }
 
   var newEntityList = new Array();
-  for (var entityHash of entities) {
+  for (var entityHash in entities) {
     newEntityList.push({
       'subState': entities[entityHash].subState,
       'components': entities[entityHash].components,
