@@ -111,7 +111,6 @@ class ClientManager extends Manager {
         var _this = this;
         this._worker.onmessage = this.workerResolve.bind(this);
       }
-      this.tickValue = tick;
       var oldDict = this._stateManager.getBufferedState(tick);
       var oldState;
       if (oldDict !== undefined) {
@@ -122,19 +121,21 @@ class ClientManager extends Manager {
         oldState = this._stateManager.serializeState();
       }
 
-      this._otherStateManager.mergeEntireState(this._stateManager.getState());
+      this._otherStateManager.mergeEntireState(this._stateManager.getState(), this._componentManager);
       this._otherStateManager.mergeState(oldState, this._componentManager);
 
       this._worker.postMessage({
         'oldState': oldState,
-        'deltaState': stateObject.state
+        'deltaState': stateObject.state,
+        'tick': tick
       });
     }
   }
 
   workerResolve(mes) {
-    var tick = this.tickValue;
     var data = mes.data;
+    var tick = data.tick;
+      data = data.state;
 
     this._otherStateManager.mergeState(data, this._componentManager);
 

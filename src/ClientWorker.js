@@ -63,5 +63,9 @@ onmessage = function(e) {
     });
   }
   oldState.entities = newEntityList;
-  postMessage(oldState);
+
+  postMessage({
+    'state': oldState,
+    'tick': data.tick
+  });
 }
