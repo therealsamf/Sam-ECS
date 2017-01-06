@@ -124,6 +124,9 @@ class ClientManager extends Manager {
         oldState = this._stateManager.serializeState();
       }
 
+      this._otherStateManager.mergeEntireState(this._stateManager.getState());
+      this._otherStateManager.mergeState(oldState, this._componentManager);
+
       this._worker.postMessage({
         'oldState': oldState,
         'deltaState': stateObject.state
