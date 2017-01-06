@@ -12,7 +12,9 @@ const MAXIMUM_BUFFER_SIZE = 12;
 const Manager = require('./Manager.js');
 const StateManager = require('./StateManager.js');
 
-const StateWorker = require("worker!./ClientWorker.js");
+var StateWorker
+if (window.Worker) 
+  StateWorker = require("worker!./ClientWorker.js");
 
 class ClientManager extends Manager {
   constructor(socket) {
@@ -72,7 +74,7 @@ class ClientManager extends Manager {
 
     if (!window.Worker) {
 
-      if (this._lastAcknowledgedState > 0 tick > this._lastAcknowledgedState) {
+      if (this._lastAcknowledgedState > 0 && tick > this._lastAcknowledgedState) {
         this._stateManager.restoreState(tick);
         // this._otherStateManager.mergeState(
         //   this._otherStateManager._serializeState(
@@ -85,7 +87,7 @@ class ClientManager extends Manager {
       // this._otherStateManager.mergeState(stateObject.state, this._componentManager);
       this._stateManager.mergeState(stateObject.state, this._componentManager);
       if (tick < this._currentTick) {
-        this._actionManager.reApplyFrom(tick, this._otherStateManager);
+        this._actionManager.reApplyFrom(tick, this._stateManager);
       }
       // we're behind (cheating?)
       else {
