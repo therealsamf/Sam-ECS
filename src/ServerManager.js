@@ -59,7 +59,7 @@ class ServerManager extends Manager {
         var deltaState = this._stateManager.getDeltaState(oldState);
         //there have been changes
         if (deltaState.length > 0) {
-          this.sendStateUpdate(clientID);
+          this.sendStateUpdate(clientID, deltaState);
         }
       }
       // send the client state for sure
@@ -71,10 +71,30 @@ class ServerManager extends Manager {
     this._currentTick++;
   }
 
-  sendStateUpdate(clientID) {
+  /** 
+   * @description - This function is responsible for sending a particular client an update
+   * in state
+   * @param {String} clientID - the ID of the client within the _clients
+   * @param {Dict} deltaState - an optional parameter for the new state to send
+   * to the client
+   */
+  sendStateUpdate(clientID, deltaState) {
+    //not going to check if this is valid here because it should be
+    var clientObject = this._clients[clientID];
+    var state = deltaState;
+    if (!state) {
+      var oldStateObject = this._stateManager.getBufferedState(clientObject.lastAcknowledgedState);
+      if (oldStateObject) {
+        state = this._stateManager.getDeltaState(oldStateObject.state);
+      }
+      else {
+        state = this._stateManager.getSubState();
+      }
+    }
+
     this._clients[clientID].socket.emit('UPDATE', {
       'tick': this._currentTick,
-      'state': this._stateManager._serializeState(this._stateManager.getDeltaState(this._stateManager.getBufferedState(this._clients[clientID].lastAcknowledgedState)))
+      'state': this._stateManager._serializeState(state);
     });
   }
 }
