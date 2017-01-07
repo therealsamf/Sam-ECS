@@ -74,7 +74,7 @@ class ServerManager extends Manager {
   sendStateUpdate(clientID) {
     this._clients[clientID].socket.emit('UPDATE', {
       'tick': this._currentTick,
-      'state': this.serializeState()
+      'state': this._stateManager._serializeState(this._stateManager.getDeltaState(this._stateManager.getBufferedState(this._clients[clientID].lastAcknowledgedState)))
     });
   }
 }
