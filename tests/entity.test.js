@@ -127,7 +127,10 @@ describe("Equality", () => {
 
   test("Is correct", () => {
 
+
     expect(entity1.equals(entity2)).toBe(true);
+    expect(Object.equals(entity1.getComponents().get('Render').get('state'),
+      entity3.getComponents().get('Render').get('state'))).toBe(false);
     expect(entity1.equals(entity3)).toBe(false);
   });
 

@@ -94,7 +94,7 @@ class ServerManager extends Manager {
 
     this._clients[clientID].socket.emit('UPDATE', {
       'tick': this._currentTick,
-      'state': this._stateManager._serializeState(state);
+      'state': this._stateManager._serializeState(state)
     });
   }
 }

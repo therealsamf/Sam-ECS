@@ -7,6 +7,8 @@
 
 //node imports
 const Dict = require('collections/dict.js');
+const isEqual = require('lodash/isEqual.js');
+
 
 //user imports
 const StringGenerator = require('./utils/RandomStringGenerator.js');
@@ -207,7 +209,23 @@ class Entity {
    * @returns {Boolean} is this equivalent to the other entity
    */
   equals(entity) {
-    return this._components.equals(entity.getComponents());
+    var otherComponents = entity.getComponents();
+    if (this._components.length != otherComponents.length) {
+      return false;
+    }
+    for (var componentName of this._components.keys()) {
+      if (!otherComponents.has(componentName)) {
+        return false;
+      }
+
+      var otherComponent = otherComponents.get(componentName);
+      if (!isEqual(this._components.get(componentName).get('state'),
+        otherComponent.get('state'))) {
+        return false;
+      }
+    }
+
+    return true;
   }
 
   /**
