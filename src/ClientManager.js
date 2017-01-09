@@ -46,24 +46,47 @@ class ClientManager extends Manager {
     });
   }
 
+  /**
+   * @description - Returns the socket object
+   * @returns {Socket.io} the socket.io object
+   */
   getSocket() {
     return this._socket;
   }
 
+  /**
+   * @description - The event side affect which will buffer events before they are
+   * sent to the server
+   * @param {Object} event - the event object
+   */
   eventFun(event) {
-    Object.assign(event, {'tick': this._currentTick});
-    this._eventBuffer.push(event);
-    this.sendNextEvent();
+    if (!event.local) {
+      Object.assign(event, {'tick': this._currentTick});
+      this._eventBuffer.push(event);
+      this.sendNextEvent();
+    }
   }
 
+  /**
+   * @description - Sets the user for this client manager
+   * @param {String} value - the value to set the user to
+   */
   setUser(value) {
     this._user = value;
   }
 
+  /**
+   * @description - Accessor method for the server
+   * @returns {String} the current user
+   */
   getUser() {
     return this._user;
   }
 
+  /**
+   * @description - Receiver function for state updates from the server
+   * @param {Object} stateObject - the state object received from the server
+   */
   receiveState(stateObject) {
     var tick = stateObject.tick;
 
@@ -132,6 +155,10 @@ class ClientManager extends Manager {
     }
   }
 
+  /**
+   * @description - Message handler for communicating with the web worker
+   * @param {Object} mes - the message returned from the web worker
+   */
   workerResolve(mes) {
     var data = mes.data;
     var tick = data.tick;
@@ -165,6 +192,9 @@ class ClientManager extends Manager {
     }
   }
 
+  /**
+   * @description - Sends the next event in the event buffer to the server
+   */
   sendNextEvent() {
     if (!this._eventPending) {
       var event = this._eventBuffer.shift();
