@@ -178,8 +178,8 @@ class Manager {
    * entities that contain all the components the processor identifies
    * @param {Processor} processor - The processor to be added
    */
-  addProcessor(processor) {
-    return this._processorManager.addProcessor(processor);
+  addProcessor(processor, addToOrder) {
+    return this._processorManager.addProcessor(processor, addToOrder);
   }
 
   /**
