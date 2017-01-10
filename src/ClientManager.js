@@ -63,7 +63,9 @@ class ClientManager extends Manager {
     if (!event.local) {
       Object.assign(event, {'tick': this._currentTick});
       this._eventBuffer.push(event);
-      this.sendNextEvent();
+      setTimeout(() => {
+        this.sendNextEvent();
+      }, 0);
     }
   }
 
