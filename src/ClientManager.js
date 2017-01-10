@@ -171,8 +171,8 @@ class ClientManager extends Manager {
   workerResolve(mes) {
     var data = mes.data;
     var tick = data.tick;
-      data = data.state,
-      receivedTick = data.receivedTick;
+    data = data.state;
+    var receivedTick = data.receivedTick;
 
     this._otherStateManager.mergeState(data, this._componentManager);
 
