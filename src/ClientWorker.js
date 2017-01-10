@@ -68,6 +68,7 @@ onmessage = function(e) {
 
   postMessage({
     'state': oldState,
-    'tick': data.tick
+    'tick': data.tick,
+    'receivedTick': data.receivedTick
   });
 }

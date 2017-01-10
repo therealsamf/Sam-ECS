@@ -152,8 +152,15 @@ class ClientManager extends Manager {
       this._worker.postMessage({
         'oldState': oldState,
         'deltaState': stateObject.state,
-        'tick': tick
+        'tick': tick,
+        'receivedTick': this._currentTick
       });
+
+      //we're behind
+      if (tick > this._currentTick) {
+        this._currentTick = tick;
+        this._stateManager.bufferState(this._currentTick);
+      }
     }
   }
 
@@ -164,19 +171,20 @@ class ClientManager extends Manager {
   workerResolve(mes) {
     var data = mes.data;
     var tick = data.tick;
-      data = data.state;
+      data = data.state,
+      receivedTick = data.receivedTick;
 
     this._otherStateManager.mergeState(data, this._componentManager);
 
 
-    if (tick < this._currentTick) {
+    if (tick < receivedTick) {
       this._actionManager.reApplyFrom(tick, this._otherStateManager);
     }
     // we're behind (cheating?)
-    else if (tick > this._currentTick) {
-      console.warn("We're behind the server by: " + (tick - this._currentTick) + " ticks."); 
-      this._currentTick = tick;
-      this._stateManager.bufferState(this._currentTick);
+    else if (tick > receivedTick) {
+      console.warn("We're behind the server by: " + (tick - receivedTick) + " ticks."); 
+      // this._currentTick = tick;
+      // this._stateManager.bufferState(this._currentTick);
     }
 
     this._stateManager.mergeState(
