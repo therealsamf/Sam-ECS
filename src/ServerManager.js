@@ -19,7 +19,8 @@ class ServerManager extends Manager {
   addClient(id, socket) {
     this._clients[id] = {
       'socket': socket,
-      'lastAcknowledgedState': -1
+      'lastAcknowledgedState': -1,
+      'ready': true
     };
 
 
@@ -34,6 +35,7 @@ class ServerManager extends Manager {
       _this._eventManager.emit(event.type, Object.assign(event, {'sid': id}));
     });
     socket.on('ACKNOWLEDGE', (data) => {
+      _this._clients[id].ready = true;
       _this._clients[id].lastAcknowledgedState = data.tick;
     });
 
@@ -81,6 +83,9 @@ class ServerManager extends Manager {
   sendStateUpdate(clientID, deltaState) {
     //not going to check if this is valid here because it should be
     var clientObject = this._clients[clientID];
+    if (!clientObject.ready) {
+      return;
+    }
     var state = deltaState;
     if (!state) {
       var oldStateObject = this._stateManager.getBufferedState(clientObject.lastAcknowledgedState);
@@ -92,6 +97,7 @@ class ServerManager extends Manager {
       }
     }
 
+    this._clients[clientID].ready = false;
     this._clients[clientID].socket.emit('UPDATE', {
       'tick': this._currentTick,
       'state': this._stateManager._serializeState(state)
