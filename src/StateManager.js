@@ -241,8 +241,9 @@ class StateManager {
    * @param {Iterable} entities - the entity hashes that will be added
    */
   addEntitiesToSubState(name, entities) {
-    if (!this._subStates.has(name)) {
-      throw new TypeError("Can't add entities to an unknown substate: " + name);
+    if (this._subStates.has(name)) {
+      // throw new TypeError("Can't add entities to an unknown substate: " + name);
+      this.addSubState(name);
     }
 
     var subState = this._subStates.get(name);
