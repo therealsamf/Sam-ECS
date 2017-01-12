@@ -201,6 +201,14 @@ class Manager {
   }
 
   /**
+   * @description - Updates a single processor
+   * @param {String} processorName - the name of the processor to update
+   */
+  updateProcessor(processorName) {
+    this._processorManager.updateProcessor(processorName);
+  }
+
+  /**
    * @description - Allows entities to be sorted in the 
    * cached list that is given to a processor
    * @param {Function} sorter - comparator function for the sorting.

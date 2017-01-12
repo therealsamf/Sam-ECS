@@ -75,7 +75,7 @@ class ProcessorManager {
    * @description - Adds a processor to the processor manager
    * @param {Processor} processor - the processor to be added
    */
-  addProcessor(processor) {
+  addProcessor(processor, addToOrder = true) {
     this._processors.set(processor.getName(), new Dict({
       'name': processor.getName(),
       'order': ++this._processorOrder,
@@ -83,10 +83,15 @@ class ProcessorManager {
       'cachedEntityList': new Set()
     }));
 
-    this._processorsOrder.add({
-      'name': processor.getName(),
-      'order': this._processorOrder
-    });
+    /* in case we would want a processor to be updated seperately
+     * (like a RenderProcessor) we don't always add it to the update order
+     */
+    if (addToOrder) {
+      this._processorsOrder.add({
+        'name': processor.getName(),
+        'order': this._processorOrder
+      });
+    }
 
     this.fetchCachedList(processor.getName());
   }
@@ -170,9 +175,17 @@ class ProcessorManager {
   update() {
     var _this = this;
     this._processorsOrder.forEach((value, index) => {
-      var processorObject = _this._processors.get(value.name);
-      processorObject.get('object').update(processorObject.get('cachedEntityList'));
+      _this.updateProcessor(value.name);
     });
+  }
+
+  /**
+   * @description - Updates a single processor
+   * @param {String} processorName - the name of the processor to update
+   */
+  updateProcessor(processorName) {
+    var processorObject = this._processors.get(processorName);
+    processorObject.get('object').update(processorObject.get('cachedEntityList'));
   }
 
   /**
