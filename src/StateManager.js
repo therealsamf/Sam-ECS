@@ -225,10 +225,10 @@ class StateManager {
    * to the state
    */
   addSubState(name, entities) {
-    if (this._subStates.has(name)) {
-      throw new TypeError("Attempting to override substate: " + name + "!");
+    if (!this._subStates.has(name)) {
+      this._subStates.set(name, new Set());
+      // throw new TypeError("Attempting to override substate: " + name + "!");
     }
-    this._subStates.set(name, new Set());
 
     if (entities) {
       this.addEntitiesToSubState(name, entities.toArray());
