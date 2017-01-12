@@ -1,6 +1,6 @@
 {
   "name": "sam-ecs",
-  "version": "4.3.7",
+  "version": "4.3.8",
   "description": "A specialized entity component system",
   "main": "./dist/index.js",
   "scripts": {
