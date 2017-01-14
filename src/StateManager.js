@@ -86,8 +86,13 @@ class StateManager {
     if (!hash) {
       return undefined;
     }
-    var entityComponents = this.getEntityState(hash);
-    return entityComponents.get(component).get('state');
+    try {
+      var entityComponents = this.getEntityState(hash);
+      return entityComponents.get(component).get('state');
+    }
+    catch (e) {
+      return undefined;
+    }
   }
 
   /**

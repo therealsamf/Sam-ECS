@@ -185,7 +185,7 @@ class Entity {
    * given
    * @param {Object} entityState - the object that represents the state
    * of the entity. Most likely generated from {@link serialize}
-   */
+   */ 
   deserialize(entityState, componentManager) {
     var _this = this;
     var states = {};
