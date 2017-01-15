@@ -355,7 +355,7 @@ class Manager {
    * @description - Returns the serialized state
    */
   toJSON() {
-    return this.serializeState();
+    return this._stateManager.getState();
   }
 }
 
