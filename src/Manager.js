@@ -198,6 +198,7 @@ class Manager {
     this._processorManager.update();
     this._actionManager.update(this._stateManager, this._currentTick);
     this._stateManager.update(this._currentTick);
+    this._eventManager.update(this._currentTick);
   }
 
   /**

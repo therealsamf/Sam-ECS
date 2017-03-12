@@ -13,6 +13,7 @@ const Dict = require('collections/dict.js'),
 //user imports
 const Entity = require('./Entity.js');
 const isEqual = require('lodash/isEqual.js');
+const clone = require('lodash/cloneDeep.js');
 
 //constants
 const MAXIMUM_BUFFER_LENGTH = 8;
@@ -436,6 +437,30 @@ class StateManager {
   }
 
   /**
+   * @description - Returns the entities belonging to a substate within a
+   * given, buffered state object
+   * @param {Dict} bufferedStateObject - the given buffered state object
+   * @param {String} name - the name of the substate to return
+   */
+  _getSubState(bufferedStateObject, name = 'default') {
+    if (!bufferedStateObject.subStates.has(name)) {
+      throw new TypeError(name + " substate doesn't exist in this buffered state!");
+    }
+
+    var subState = bufferedStateObject.subStates.get(name);
+    var entities = bufferedStateObject.entities.filter((value, key, dict) => {
+      return subState.has(key);
+    });
+
+    var returnDict = new Dict();
+    for (var entity of entities.keys()) {
+      returnDict.set(entity, entities.get(entity));
+    }
+
+    return returnDict;
+  }
+
+  /**
    * @description - Saves the given substate to a regular js Object
    * @param {String} subState - the substate to serialize
    * @returns {Object} the state of the given substate
@@ -455,6 +480,27 @@ class StateManager {
     return {
       'entities': entitiesList
     };
+  }
+
+  /**
+   * @description - Generates a checksum of a serialized state object
+   * @returns {int}
+   */
+  generateCheckSum(serializedStateObject) {
+    var entityList = serializedStateObject.entities;
+    var sum = 0;
+    for (var entity of entityList) {
+      sum = crc.crc32(entity.hash, sum);
+      for (var componentName in entity.components) {
+        var component = entity.components[componentName];
+        for (var key of Object.keys(component)) {
+          sum = crc.crc32(key, sum);
+          sum = crc.crc32(component[key].toString(), sum);
+        }
+      }
+    }
+
+    return sum;
   }
 
   /**

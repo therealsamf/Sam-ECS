@@ -12,6 +12,8 @@ class EventManager {
   constructor(actionManager) {
     this._actionManager = actionManager;
     this._emitter = new EventEmitter();
+    this._queue = {};
+    this._currentTick = 0;
   }
 
   /**
@@ -52,8 +54,40 @@ class EventManager {
    * @param {Object} args - the args object that will be passed to the
    * event listeners
    */
-  emit(eventType, args) {
-    this._emitter.emit(eventType, args, this._actionManager);
+  emit(eventType, args, tick = -1) {
+    if (tick === -1) {
+      tick = this._currentTick;// + 2;
+    }
+    // this._emitter.emit(eventType, args, this._actionManager);
+    if (!this._queue[tick]) {
+      this._queue[tick] = new Array();
+    }
+
+    this._queue[tick].push({
+      'eventType': eventType,
+      'args': args
+    });
+  }
+
+  /**
+   * @description - Called every frame in order to emit our queued events
+   * @param {int} currentTick - the current tick of the engine
+   */
+  update(currentTick) {
+    this._currentTick = currentTick;
+
+    if (this._currentTick in this._queue) {
+      var eventQueue = this._queue[this._currentTick];
+      for (var eventObject of eventQueue) {
+        this._emitter.emit(eventObject.eventType, eventObject.args, this._actionManager);
+      }
+    }
+
+    /* Because this should get called every tick, it shouldn't be necessary to 
+     * delete everything <= the current tick. Just the = the current tick
+     * should be enough
+     */
+    delete this._queue[this._currentTick];
   }
 }
 
